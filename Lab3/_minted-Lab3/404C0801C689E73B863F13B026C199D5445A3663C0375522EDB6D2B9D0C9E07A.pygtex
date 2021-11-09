@@ -1,0 +1,37 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+cp}{\PYGZsh{}define \PYGZus{}GNU\PYGZus{}SOURCE}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}stdio.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}stdlib.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}sched.h\PYGZgt{}}
+
+\PYG{k+kt}{int} \PYG{n+nf}{main}\PYG{p}{(}\PYG{k+kt}{int} \PYG{n}{argc}\PYG{p}{,} \PYG{k+kt}{char} \PYG{o}{*}\PYG{n}{argv}\PYG{p}{[])} \PYG{p}{\PYGZob{}}
+    \PYG{k+kt}{int} \PYG{n}{n} \PYG{o}{=} \PYG{n}{atoi}\PYG{p}{(}\PYG{n}{argv}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]);}  \PYG{c+c1}{// 0 \PYGZlt{}= n \PYGZlt{}= 3}
+    \PYG{k}{if} \PYG{p}{(}\PYG{n}{n} \PYG{o}{\PYGZlt{}} \PYG{l+m+mi}{0} \PYG{o}{||} \PYG{n}{n} \PYG{o}{\PYGZgt{}} \PYG{l+m+mi}{3}\PYG{p}{)} \PYG{p}{\PYGZob{}}
+    	\PYG{n}{fprintf}\PYG{p}{(}\PYG{n}{stderr}\PYG{p}{,} \PYG{l+s}{\PYGZdq{}Error: Input CPU core number is invalid.}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{);}
+    	\PYG{c+c1}{// Return value of int main() other than EXIT\PYGZus{}SUCCESS = 0 OR EXIT\PYGZus{}FAILURE = 1}
+    	\PYG{c+c1}{// in \PYGZlt{}stdlib.h\PYGZgt{} is not defined. Instructed by Lab\PYGZus{}3.pdf, we return a negative value \PYGZhy{}1.}
+    	\PYG{k}{return} \PYG{l+m+mi}{\PYGZhy{}1}\PYG{p}{;}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{c+c1}{// sched\PYGZus{}get\PYGZus{}priority\PYGZus{}min(SCHED\PYGZus{}RR) \PYGZlt{}= rtpriority \PYGZlt{}= sched\PYGZus{}get\PYGZus{}priority\PYGZus{}max(SCHED\PYGZus{}RR)}
+    \PYG{k+kt}{int} \PYG{n}{rtpriority} \PYG{o}{=} \PYG{n}{atoi}\PYG{p}{(}\PYG{n}{argv}\PYG{p}{[}\PYG{l+m+mi}{2}\PYG{p}{]);}
+    \PYG{k+kt}{size\PYGZus{}t} \PYG{n}{x}\PYG{p}{;}
+    \PYG{k}{if} \PYG{p}{(}\PYG{n}{rtpriority} \PYG{o}{\PYGZlt{}} \PYG{n}{sched\PYGZus{}get\PYGZus{}priority\PYGZus{}min}\PYG{p}{(}\PYG{n}{SCHED\PYGZus{}RR}\PYG{p}{)} \PYG{o}{||} \PYG{n}{rtpriority} \PYG{o}{\PYGZgt{}} \PYG{n}{sched\PYGZus{}get\PYGZus{}priority\PYGZus{}max}\PYG{p}{(}\PYG{n}{SCHED\PYGZus{}RR}\PYG{p}{))} \PYG{p}{\PYGZob{}}
+    	\PYG{n}{fprintf}\PYG{p}{(}\PYG{n}{stderr}\PYG{p}{,} \PYG{l+s}{\PYGZdq{}Error: Input priority is out of range.}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{);}
+    	\PYG{k}{return} \PYG{l+m+mi}{\PYGZhy{}1}\PYG{p}{;}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{k}{struct} \PYG{n+nc}{sched\PYGZus{}param} \PYG{n}{param}\PYG{p}{;}
+    \PYG{n}{param}\PYG{p}{.}\PYG{n}{sched\PYGZus{}priority} \PYG{o}{=} \PYG{n}{rtpriority}\PYG{p}{;}
+    \PYG{k+kt}{cpu\PYGZus{}set\PYGZus{}t} \PYG{n}{set}\PYG{p}{;}
+    \PYG{n}{CPU\PYGZus{}ZERO}\PYG{p}{(}\PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{n}{CPU\PYGZus{}SET}\PYG{p}{(}\PYG{n}{n}\PYG{p}{,} \PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{n}{sched\PYGZus{}setaffinity}\PYG{p}{(}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{k}{sizeof}\PYG{p}{(}\PYG{k+kt}{cpu\PYGZus{}set\PYGZus{}t}\PYG{p}{),} \PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{k}{if} \PYG{p}{(}\PYG{n}{sched\PYGZus{}setscheduler}\PYG{p}{(}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{n}{SCHED\PYGZus{}RR}\PYG{p}{,} \PYG{o}{\PYGZam{}}\PYG{n}{param}\PYG{p}{))} \PYG{p}{\PYGZob{}}
+        \PYG{n}{perror}\PYG{p}{(}\PYG{l+s}{\PYGZdq{}Error: Fail to set scheduler SCHED\PYGZus{}RR}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{);}
+        \PYG{k}{return} \PYG{l+m+mi}{\PYGZhy{}1}\PYG{p}{;}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{k}{for} \PYG{p}{(}\PYG{k+kt}{size\PYGZus{}t} \PYG{n}{i} \PYG{o}{=} \PYG{l+m+mi}{0}\PYG{p}{;} \PYG{n}{i} \PYG{o}{\PYGZlt{}=} \PYG{l+m+mi}{500000000}\PYG{p}{;} \PYG{o}{++}\PYG{n}{i}\PYG{p}{)} \PYG{p}{\PYGZob{}}
+        \PYG{n}{x} \PYG{o}{=} \PYG{p}{(}\PYG{n}{i} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)} \PYG{o}{*} \PYG{l+m+mi}{2}\PYG{p}{;}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{k}{return} \PYG{l+m+mi}{0}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}

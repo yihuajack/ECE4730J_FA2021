@@ -1,0 +1,4 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+sudo trace\PYGZhy{}cmd record \PYGZhy{}e sched\PYGZus{}switch ./lab3\PYGZhy{}2 \PYG{l+m}{0}
+kernelshark trace.dat
+\end{Verbatim}

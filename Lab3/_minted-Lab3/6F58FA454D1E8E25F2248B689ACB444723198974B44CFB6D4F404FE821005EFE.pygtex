@@ -1,0 +1,6 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+sudo apt install trace\PYGZhy{}cmd
+sudo trace\PYGZhy{}cmd record \PYGZhy{}e sched\PYGZus{}switch ./lab3\PYGZhy{}1 \PYG{l+m}{0}
+sudo apt install kernelshark
+kernelshark trace.dat
+\end{Verbatim}

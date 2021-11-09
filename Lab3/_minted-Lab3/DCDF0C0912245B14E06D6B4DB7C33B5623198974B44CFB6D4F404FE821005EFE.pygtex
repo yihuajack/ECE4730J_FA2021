@@ -1,0 +1,4 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+gcc \PYGZhy{}o lab3\PYGZhy{}1 lab3\PYGZhy{}1.c
+\PYG{n+nb}{time} ./lab3\PYGZhy{}1 \PYG{l+m}{0}
+\end{Verbatim}

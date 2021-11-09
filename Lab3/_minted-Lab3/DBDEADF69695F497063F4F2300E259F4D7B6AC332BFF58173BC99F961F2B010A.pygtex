@@ -1,0 +1,20 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+cp}{\PYGZsh{}define \PYGZus{}GNU\PYGZus{}SOURCE}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}stdio.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}stdlib.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}sched.h\PYGZgt{}}
+
+\PYG{k+kt}{int} \PYG{n+nf}{main}\PYG{p}{(}\PYG{k+kt}{int} \PYG{n}{argc}\PYG{p}{,} \PYG{k+kt}{char} \PYG{o}{**}\PYG{n}{argv}\PYG{p}{)} \PYG{p}{\PYGZob{}}
+    \PYG{k+kt}{int} \PYG{n}{n} \PYG{o}{=} \PYG{n}{atoi}\PYG{p}{(}\PYG{n}{argv}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]);}  \PYG{c+c1}{// 0 \PYGZlt{}= n \PYGZlt{}= 3}
+    \PYG{k+kt}{size\PYGZus{}t} \PYG{n}{x}\PYG{p}{;}
+    \PYG{c+c1}{// scanf(\PYGZdq{}\PYGZpc{}d\PYGZdq{}, \PYGZam{}n);}
+    \PYG{k+kt}{cpu\PYGZus{}set\PYGZus{}t} \PYG{n}{set}\PYG{p}{;}
+    \PYG{n}{CPU\PYGZus{}ZERO}\PYG{p}{(}\PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{n}{CPU\PYGZus{}SET}\PYG{p}{(}\PYG{n}{n}\PYG{p}{,} \PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{n}{sched\PYGZus{}setaffinity}\PYG{p}{(}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{k}{sizeof}\PYG{p}{(}\PYG{k+kt}{cpu\PYGZus{}set\PYGZus{}t}\PYG{p}{),} \PYG{o}{\PYGZam{}}\PYG{n}{set}\PYG{p}{);}
+    \PYG{k}{for} \PYG{p}{(}\PYG{k+kt}{size\PYGZus{}t} \PYG{n}{i} \PYG{o}{=} \PYG{l+m+mi}{0}\PYG{p}{;} \PYG{n}{i} \PYG{o}{\PYGZlt{}=} \PYG{l+m+mi}{500000000}\PYG{p}{;} \PYG{o}{++}\PYG{n}{i}\PYG{p}{)} \PYG{p}{\PYGZob{}}
+        \PYG{n}{x} \PYG{o}{=} \PYG{p}{(}\PYG{n}{i} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)} \PYG{o}{*} \PYG{l+m+mi}{2}\PYG{p}{;}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{k}{return} \PYG{l+m+mi}{0}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}
