@@ -1,0 +1,4 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+[11933.762154] simple\PYGZus{}module: loading out\PYGZhy{}of\PYGZhy{}tree module taints kernel.
+[11933.762612] simple\PYGZus{}module initialized
+\end{Verbatim}

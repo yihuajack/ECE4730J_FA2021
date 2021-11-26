@@ -1,0 +1,95 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+Module                  Size  Used by
+rfcomm                 94208  4
+cmac                   16384  2
+algif\PYGZus{}hash             20480  1
+aes\PYGZus{}arm64              16384  2
+algif\PYGZus{}skcipher         20480  1
+af\PYGZus{}alg                 32768  6 algif\PYGZus{}hash,algif\PYGZus{}skcipher
+hci\PYGZus{}uart              151552  1
+btqca                  24576  1 hci\PYGZus{}uart
+btrtl                  24576  1 hci\PYGZus{}uart
+btbcm                  24576  1 hci\PYGZus{}uart
+btintel                32768  1 hci\PYGZus{}uart
+bnep                   32768  2
+snd\PYGZus{}soc\PYGZus{}hdmi\PYGZus{}codec     24576  2
+vc4                   290816  16
+drm\PYGZus{}kms\PYGZus{}helper        282624  3 vc4
+cec                    73728  2 drm\PYGZus{}kms\PYGZus{}helper,vc4
+snd\PYGZus{}soc\PYGZus{}core          278528  2 vc4,snd\PYGZus{}soc\PYGZus{}hdmi\PYGZus{}codec
+snd\PYGZus{}bcm2835            32768  1
+btsdio                 20480  0
+snd\PYGZus{}compress           32768  1 snd\PYGZus{}soc\PYGZus{}core
+ac97\PYGZus{}bus               16384  1 snd\PYGZus{}soc\PYGZus{}core
+snd\PYGZus{}pcm\PYGZus{}dmaengine      20480  1 snd\PYGZus{}soc\PYGZus{}core
+bluetooth             696320  35 btrtl,btqca,btsdio,btintel,hci\PYGZus{}uart,btbcm,bnep,rfcomm
+snd\PYGZus{}pcm\PYGZus{}oss            61440  0
+snd\PYGZus{}mixer\PYGZus{}oss          32768  1 snd\PYGZus{}pcm\PYGZus{}oss
+ecdh\PYGZus{}generic           16384  1 bluetooth
+input\PYGZus{}leds             16384  0
+joydev                 28672  0
+ecc                    32768  1 ecdh\PYGZus{}generic
+snd\PYGZus{}pcm               139264  6 snd\PYGZus{}bcm2835,snd\PYGZus{}soc\PYGZus{}hdmi\PYGZus{}codec,snd\PYGZus{}compress,snd\PYGZus{}pcm\PYGZus{}oss,snd\PYGZus{}soc\PYGZus{}core,snd\PYGZus{}pcm\PYGZus{}dmaengine
+snd\PYGZus{}seq\PYGZus{}dummy          16384  0
+snd\PYGZus{}seq\PYGZus{}oss            53248  0
+snd\PYGZus{}seq\PYGZus{}midi           20480  0
+snd\PYGZus{}seq\PYGZus{}midi\PYGZus{}event     16384  2 snd\PYGZus{}seq\PYGZus{}midi,snd\PYGZus{}seq\PYGZus{}oss
+bcm2835\PYGZus{}isp            32768  0
+bcm2835\PYGZus{}codec          49152  0
+bcm2835\PYGZus{}v4l2           45056  0
+brcmfmac              393216  0
+snd\PYGZus{}rawmidi            49152  1 snd\PYGZus{}seq\PYGZus{}midi
+v4l2\PYGZus{}mem2mem           40960  1 bcm2835\PYGZus{}codec
+bcm2835\PYGZus{}mmal\PYGZus{}vchiq     40960  3 bcm2835\PYGZus{}codec,bcm2835\PYGZus{}v4l2,bcm2835\PYGZus{}isp
+videobuf2\PYGZus{}vmalloc      20480  1 bcm2835\PYGZus{}v4l2
+videobuf2\PYGZus{}dma\PYGZus{}contig    24576  2 bcm2835\PYGZus{}codec,bcm2835\PYGZus{}isp
+brcmutil               28672  1 brcmfmac
+snd\PYGZus{}seq                90112  6 snd\PYGZus{}seq\PYGZus{}midi,snd\PYGZus{}seq\PYGZus{}oss,snd\PYGZus{}seq\PYGZus{}midi\PYGZus{}event,snd\PYGZus{}seq\PYGZus{}dummy
+videobuf2\PYGZus{}memops       20480  2 videobuf2\PYGZus{}vmalloc,videobuf2\PYGZus{}dma\PYGZus{}contig
+videobuf2\PYGZus{}v4l2         32768  4 bcm2835\PYGZus{}codec,bcm2835\PYGZus{}v4l2,v4l2\PYGZus{}mem2mem,bcm2835\PYGZus{}isp
+videobuf2\PYGZus{}common       65536  5 bcm2835\PYGZus{}codec,videobuf2\PYGZus{}v4l2,bcm2835\PYGZus{}v4l2,v4l2\PYGZus{}mem2mem,bcm2835\PYGZus{}isp
+cfg80211              921600  1 brcmfmac
+snd\PYGZus{}seq\PYGZus{}device         20480  4 snd\PYGZus{}seq,snd\PYGZus{}seq\PYGZus{}midi,snd\PYGZus{}seq\PYGZus{}oss,snd\PYGZus{}rawmidi
+snd\PYGZus{}timer              45056  2 snd\PYGZus{}seq,snd\PYGZus{}pcm
+videodev              290816  6 bcm2835\PYGZus{}codec,videobuf2\PYGZus{}v4l2,bcm2835\PYGZus{}v4l2,videobuf2\PYGZus{}common,v4l2\PYGZus{}mem2mem,bcm2835\PYGZus{}isp
+crct10dif\PYGZus{}ce           20480  1
+v3d                    81920  4
+mc                     73728  6 videodev,bcm2835\PYGZus{}codec,videobuf2\PYGZus{}v4l2,videobuf2\PYGZus{}common,v4l2\PYGZus{}mem2mem,bcm2835\PYGZus{}isp
+raspberrypi\PYGZus{}hwmon      16384  0
+gpu\PYGZus{}sched              49152  1 v3d
+vc\PYGZus{}sm\PYGZus{}cma              40960  2 bcm2835\PYGZus{}mmal\PYGZus{}vchiq,bcm2835\PYGZus{}isp
+snd                   110592  16 snd\PYGZus{}seq,snd\PYGZus{}seq\PYGZus{}device,snd\PYGZus{}seq\PYGZus{}oss,snd\PYGZus{}bcm2835,snd\PYGZus{}soc\PYGZus{}hdmi\PYGZus{}codec,snd\PYGZus{}timer,snd\PYGZus{}compress,snd\PYGZus{}pcm\PYGZus{}oss,snd\PYGZus{}soc\PYGZus{}core,snd\PYGZus{}pcm,snd\PYGZus{}rawmidi,snd\PYGZus{}mixer\PYGZus{}oss
+fb\PYGZus{}sys\PYGZus{}fops            20480  1 drm\PYGZus{}kms\PYGZus{}helper
+syscopyarea            16384  1 drm\PYGZus{}kms\PYGZus{}helper
+sysfillrect            16384  1 drm\PYGZus{}kms\PYGZus{}helper
+sysimgblt              16384  1 drm\PYGZus{}kms\PYGZus{}helper
+bcm2835\PYGZus{}gpiomem        16384  0
+rpivid\PYGZus{}mem             16384  0
+nvmem\PYGZus{}rmem             16384  0
+uio\PYGZus{}pdrv\PYGZus{}genirq        20480  0
+uio                    24576  1 uio\PYGZus{}pdrv\PYGZus{}genirq
+sch\PYGZus{}fq\PYGZus{}codel           20480  7
+ppdev                  24576  0
+lp                     24576  0
+parport                45056  2 lp,ppdev
+drm                   606208  13 gpu\PYGZus{}sched,drm\PYGZus{}kms\PYGZus{}helper,v3d,vc4
+ip\PYGZus{}tables              40960  0
+x\PYGZus{}tables               49152  1 ip\PYGZus{}tables
+autofs4                53248  2
+btrfs                1478656  0
+blake2b\PYGZus{}generic        24576  0
+xor                    20480  1 btrfs
+xor\PYGZus{}neon               16384  1 xor
+hid\PYGZus{}generic            16384  0
+usbhid                 69632  0
+raid6\PYGZus{}pq              110592  1 btrfs
+libcrc32c              16384  1 btrfs
+dwc2                  258048  0
+roles                  16384  1 dwc2
+udc\PYGZus{}core               69632  1 dwc2
+i2c\PYGZus{}brcmstb            20480  0
+spidev                 24576  0
+xhci\PYGZus{}pci               24576  0
+xhci\PYGZus{}pci\PYGZus{}renesas       24576  1 xhci\PYGZus{}pci
+phy\PYGZus{}generic            20480  1
+\end{Verbatim}

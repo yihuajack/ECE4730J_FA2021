@@ -1,0 +1,93 @@
+Module                  Size  Used by
+rfcomm                 94208  4
+cmac                   16384  2
+algif_hash             20480  1
+aes_arm64              16384  2
+algif_skcipher         20480  1
+af_alg                 32768  6 algif_hash,algif_skcipher
+hci_uart              151552  1
+btqca                  24576  1 hci_uart
+btrtl                  24576  1 hci_uart
+btbcm                  24576  1 hci_uart
+btintel                32768  1 hci_uart
+bnep                   32768  2
+snd_soc_hdmi_codec     24576  2
+vc4                   290816  16
+drm_kms_helper        282624  3 vc4
+cec                    73728  2 drm_kms_helper,vc4
+snd_soc_core          278528  2 vc4,snd_soc_hdmi_codec
+snd_bcm2835            32768  1
+btsdio                 20480  0
+snd_compress           32768  1 snd_soc_core
+ac97_bus               16384  1 snd_soc_core
+snd_pcm_dmaengine      20480  1 snd_soc_core
+bluetooth             696320  35 btrtl,btqca,btsdio,btintel,hci_uart,btbcm,bnep,rfcomm
+snd_pcm_oss            61440  0
+snd_mixer_oss          32768  1 snd_pcm_oss
+ecdh_generic           16384  1 bluetooth
+input_leds             16384  0
+joydev                 28672  0
+ecc                    32768  1 ecdh_generic
+snd_pcm               139264  6 snd_bcm2835,snd_soc_hdmi_codec,snd_compress,snd_pcm_oss,snd_soc_core,snd_pcm_dmaengine
+snd_seq_dummy          16384  0
+snd_seq_oss            53248  0
+snd_seq_midi           20480  0
+snd_seq_midi_event     16384  2 snd_seq_midi,snd_seq_oss
+bcm2835_isp            32768  0
+bcm2835_codec          49152  0
+bcm2835_v4l2           45056  0
+brcmfmac              393216  0
+snd_rawmidi            49152  1 snd_seq_midi
+v4l2_mem2mem           40960  1 bcm2835_codec
+bcm2835_mmal_vchiq     40960  3 bcm2835_codec,bcm2835_v4l2,bcm2835_isp
+videobuf2_vmalloc      20480  1 bcm2835_v4l2
+videobuf2_dma_contig    24576  2 bcm2835_codec,bcm2835_isp
+brcmutil               28672  1 brcmfmac
+snd_seq                90112  6 snd_seq_midi,snd_seq_oss,snd_seq_midi_event,snd_seq_dummy
+videobuf2_memops       20480  2 videobuf2_vmalloc,videobuf2_dma_contig
+videobuf2_v4l2         32768  4 bcm2835_codec,bcm2835_v4l2,v4l2_mem2mem,bcm2835_isp
+videobuf2_common       65536  5 bcm2835_codec,videobuf2_v4l2,bcm2835_v4l2,v4l2_mem2mem,bcm2835_isp
+cfg80211              921600  1 brcmfmac
+snd_seq_device         20480  4 snd_seq,snd_seq_midi,snd_seq_oss,snd_rawmidi
+snd_timer              45056  2 snd_seq,snd_pcm
+videodev              290816  6 bcm2835_codec,videobuf2_v4l2,bcm2835_v4l2,videobuf2_common,v4l2_mem2mem,bcm2835_isp
+crct10dif_ce           20480  1
+v3d                    81920  4
+mc                     73728  6 videodev,bcm2835_codec,videobuf2_v4l2,videobuf2_common,v4l2_mem2mem,bcm2835_isp
+raspberrypi_hwmon      16384  0
+gpu_sched              49152  1 v3d
+vc_sm_cma              40960  2 bcm2835_mmal_vchiq,bcm2835_isp
+snd                   110592  16 snd_seq,snd_seq_device,snd_seq_oss,snd_bcm2835,snd_soc_hdmi_codec,snd_timer,snd_compress,snd_pcm_oss,snd_soc_core,snd_pcm,snd_rawmidi,snd_mixer_oss
+fb_sys_fops            20480  1 drm_kms_helper
+syscopyarea            16384  1 drm_kms_helper
+sysfillrect            16384  1 drm_kms_helper
+sysimgblt              16384  1 drm_kms_helper
+bcm2835_gpiomem        16384  0
+rpivid_mem             16384  0
+nvmem_rmem             16384  0
+uio_pdrv_genirq        20480  0
+uio                    24576  1 uio_pdrv_genirq
+sch_fq_codel           20480  7
+ppdev                  24576  0
+lp                     24576  0
+parport                45056  2 lp,ppdev
+drm                   606208  13 gpu_sched,drm_kms_helper,v3d,vc4
+ip_tables              40960  0
+x_tables               49152  1 ip_tables
+autofs4                53248  2
+btrfs                1478656  0
+blake2b_generic        24576  0
+xor                    20480  1 btrfs
+xor_neon               16384  1 xor
+hid_generic            16384  0
+usbhid                 69632  0
+raid6_pq              110592  1 btrfs
+libcrc32c              16384  1 btrfs
+dwc2                  258048  0
+roles                  16384  1 dwc2
+udc_core               69632  1 dwc2
+i2c_brcmstb            20480  0
+spidev                 24576  0
+xhci_pci               24576  0
+xhci_pci_renesas       24576  1 xhci_pci
+phy_generic            20480  1

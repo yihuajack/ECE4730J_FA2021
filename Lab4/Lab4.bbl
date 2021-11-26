@@ -1,0 +1,157 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.1 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated as
+% required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\datalist[entry]{nty/global//global/global}
+  \entry{jiffies}{inbook}{}
+    \name{author}{3}{}{%
+      {{hash=CJ}{%
+         family={Corbet},
+         familyi={C\bibinitperiod},
+         given={Jonathan},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=KHG}{%
+         family={Kroah-Hartman},
+         familyi={K\bibinithyphendelim H\bibinitperiod},
+         given={Greg},
+         giveni={G\bibinitperiod},
+      }}%
+      {{hash=RA}{%
+         family={Rubini},
+         familyi={R\bibinitperiod},
+         given={Alessandro},
+         giveni={A\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {O'Reilly}%
+    }
+    \strng{namehash}{CJKHGRA1}
+    \strng{fullhash}{CJKHGRA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{C}
+    \field{sortinithash}{C}
+    \field{booktitle}{Linux Device Drivers, 3rd Edition}
+    \field{chapter}{7.1}
+    \field{isbn}{0-596-00590-3}
+    \field{pages}{636}
+    \field{title}{Measuring Time Lapses}
+    \verb{url}
+    \verb http://www.makelinux.net/ldd3/chp-7-sect-1.shtml
+    \endverb
+    \field{month}{02}
+    \field{year}{2005}
+  \endentry
+
+  \entry{subdir}{misc}{}
+    \name{author}{1}{}{%
+      {{hash=tl}{%
+         prefix={theway},
+         prefixi={t\bibinitperiod},
+         family={(lexueye)},
+         familyi={l\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{lt1}
+    \strng{fullhash}{lt1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{L}
+    \field{sortinithash}{L}
+    \field{title}{fatal error: classmap.h: No such file or directory}
+    \verb{url}
+    \verb https://bugs.launchpad.net/ubuntu/+source/linux-kernel-headers/+bug/1
+    \verb 895470
+    \endverb
+    \field{day}{01}
+    \field{month}{04}
+    \field{year}{2021}
+  \endentry
+
+  \entry{classmap}{misc}{}
+    \name{author}{1}{}{%
+      {{hash=LY}{%
+         family={Liu},
+         familyi={L\bibinitperiod},
+         given={Yihua},
+         giveni={Y\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{LY1}
+    \strng{fullhash}{LY1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{L}
+    \field{sortinithash}{L}
+    \field{title}{Build Linux kernel module error classmap.h: No such file or
+  directory}
+    \verb{url}
+    \verb https://blog.csdn.net/yihuajack/article/details/121312717
+    \endverb
+    \field{day}{14}
+    \field{month}{11}
+    \field{year}{2021}
+  \endentry
+
+  \entry{love2010linux}{book}{}
+    \name{author}{1}{}{%
+      {{hash=LR}{%
+         family={Love},
+         familyi={L\bibinitperiod},
+         given={Robert},
+         giveni={R\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Pearson Education}%
+    }
+    \strng{namehash}{LR1}
+    \strng{fullhash}{LR1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{L}
+    \field{sortinithash}{L}
+    \field{title}{Linux Kernel Development: Linux Kernel Development \_p3}
+    \field{year}{2010}
+  \endentry
+
+  \entry{compilingkm}{inbook}{}
+    \name{author}{1}{}{%
+      {{hash=SPJ}{%
+         family={Salzman},
+         familyi={S\bibinitperiod},
+         given={Peter\bibnamedelima Jay},
+         giveni={P\bibinitperiod\bibinitdelim J\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{SPJ1}
+    \strng{fullhash}{SPJ1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{S}
+    \field{sortinithash}{S}
+    \field{booktitle}{The Linux Kernel Module Programming Guide}
+    \field{title}{Compiling Kernel Modules}
+    \verb{url}
+    \verb https://tldp.org/LDP/lkmpg/2.4/html/x208.htm
+    \endverb
+    \field{year}{2001}
+  \endentry
+\enddatalist
+\endinput

@@ -1,0 +1,35 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{c+cm}{/* simple\PYGZus{}module.c \PYGZhy{} a simple template for a loadable kernel module in Linux,}
+\PYG{c+cm}{   based on the hello world kernel module example on pages 338\PYGZhy{}339 of Robert}
+\PYG{c+cm}{   Love\PYGZsq{}s \PYGZdq{}Linux Kernel Development, Third Edition.\PYGZdq{}}
+\PYG{c+cm}{ */}
+
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}linux/init.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}linux/module.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}linux/kernel.h\PYGZgt{}}
+\PYG{c+cp}{\PYGZsh{}include} \PYG{c+cpf}{\PYGZlt{}linux/jiffies.h\PYGZgt{}}
+
+\PYG{c+cm}{/* init function \PYGZhy{} logs that initialization happened, returns success */}
+\PYG{k}{static} \PYG{k+kt}{int} 
+\PYG{n+nf}{simple\PYGZus{}init}\PYG{p}{(}\PYG{k+kt}{void}\PYG{p}{)}
+\PYG{p}{\PYGZob{}}
+    \PYG{n}{printk}\PYG{p}{(}\PYG{n}{KERN\PYGZus{}ALERT} \PYG{l+s}{\PYGZdq{}simple module initialized}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{);}
+    \PYG{n}{printk}\PYG{p}{(}\PYG{n}{KERN\PYGZus{}INFO} \PYG{l+s}{\PYGZdq{}jiffies = \PYGZpc{}lu}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{jiffies}\PYG{p}{);}
+    \PYG{k}{return} \PYG{l+m+mi}{0}\PYG{p}{;}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+cm}{/* exit function \PYGZhy{} logs that the module is being removed */}
+\PYG{k}{static} \PYG{k+kt}{void} 
+\PYG{n+nf}{simple\PYGZus{}exit}\PYG{p}{(}\PYG{k+kt}{void}\PYG{p}{)}
+\PYG{p}{\PYGZob{}}
+    \PYG{n}{printk}\PYG{p}{(}\PYG{n}{KERN\PYGZus{}INFO} \PYG{l+s}{\PYGZdq{}jiffies = \PYGZpc{}lu}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{jiffies}\PYG{p}{);}
+    \PYG{n}{printk}\PYG{p}{(}\PYG{n}{KERN\PYGZus{}ALERT} \PYG{l+s}{\PYGZdq{}simple module is being unloaded}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s}{\PYGZdq{}}\PYG{p}{);}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{n}{module\PYGZus{}init}\PYG{p}{(}\PYG{n}{simple\PYGZus{}init}\PYG{p}{);}
+\PYG{n}{module\PYGZus{}exit}\PYG{p}{(}\PYG{n}{simple\PYGZus{}exit}\PYG{p}{);}
+
+\PYG{n}{MODULE\PYGZus{}LICENSE} \PYG{p}{(}\PYG{l+s}{\PYGZdq{}GPL\PYGZdq{}}\PYG{p}{);}
+\PYG{n}{MODULE\PYGZus{}AUTHOR} \PYG{p}{(}\PYG{l+s}{\PYGZdq{}Yihua Liu\PYGZdq{}}\PYG{p}{);}
+\PYG{n}{MODULE\PYGZus{}DESCRIPTION} \PYG{p}{(}\PYG{l+s}{\PYGZdq{}The Kernel Module to Get Jiffies for ECE4730J Lab4\PYGZdq{}}\PYG{p}{);}
+\end{Verbatim}

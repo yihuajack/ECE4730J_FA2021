@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+mkdir modules
+\PYG{n+nb}{cd} modules
+\PYG{c+c1}{\PYGZsh{} Copy simple\PYGZus{}module.c to modules by SFTP/SCP}
+\PYG{c+c1}{\PYGZsh{} Write a Makefile}
+sudo apt install bison  \PYG{c+c1}{\PYGZsh{} dependency}
+sudo make \PYGZhy{}C /usr/src/linux\PYGZhy{}headers\PYGZhy{}5.11.0\PYGZhy{}1021\PYGZhy{}raspi \PYG{n+nv}{M}\PYG{o}{=}\PYG{n+nv}{\PYGZdl{}PWD} modules
+\end{Verbatim}

@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+sudo make \PYGZhy{}C /usr/src/linux\PYGZhy{}headers\PYGZhy{}5.11.0\PYGZhy{}1021\PYGZhy{}raspi \PYG{n+nv}{M}\PYG{o}{=}\PYG{n+nv}{\PYGZdl{}PWD} modules
+sudo dmesg \PYGZhy{}\PYGZhy{}clear
+sudo insmod jiffies.ko
+sudo dmesg
+sudo rmmod jiffies.ko
+sudo dmesg
+\end{Verbatim}

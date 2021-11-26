@@ -1,0 +1,8 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+make: Entering directory \PYGZsq{}/usr/src/linux\PYGZhy{}headers\PYGZhy{}5.11.0\PYGZhy{}1021\PYGZhy{}raspi\PYGZsq{}
+CC [M]  /home/yihua/modules/simple\PYGZus{}module.o
+MODPOST /home/yihua/modules/Module.symvers
+CC [M]  /home/yihua/modules/simple\PYGZus{}module.mod.o
+LD [M]  /home/yihua/modules/simple\PYGZus{}module.ko
+make: Leaving directory \PYGZsq{}/usr/src/linux\PYGZhy{}headers\PYGZhy{}5.11.0\PYGZhy{}1021\PYGZhy{}raspi\PYGZsq{}
+\end{Verbatim}
