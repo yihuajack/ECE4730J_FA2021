@@ -730,7 +730,8 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
             If ``config.num_labels > 1`` a classification loss is computed (Cross-Entropy).
 
     Returns:
-        :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration (:class:`~transformers.AlbertConfig`) and inputs:
+        :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration
+            (:class:`~transformers.AlbertConfig`) and inputs:
         loss: (`optional`, returned when ``labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
             Classification (or regression if config.num_labels==1) loss.
         logits ``torch.FloatTensor`` of shape ``(batch_size, config.num_labels)``
@@ -791,8 +792,8 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
 
 
 @add_start_docstrings(
-    """Albert Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear layers on top of
-    the hidden-states output to compute `span start logits` and `span end logits`). """,
+    """Albert Model with a span classification head on top for extractive question-answering tasks like SQuAD (a linear
+    layers on top of the hidden-states output to compute `span start logits` and `span end logits`). """,
     ALBERT_START_DOCSTRING,
 )
 class AlbertForQuestionAnswering(AlbertPreTrainedModel):
