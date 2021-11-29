@@ -302,11 +302,13 @@ def squad_convert_examples_to_features(
             max_query_length=max_query_length,
             is_training=is_training,
         )
-        features = tqdm(
+        features = list(
+            tqdm(
                 p.imap(annotate_, examples, chunksize=32),
                 total=len(examples),
                 desc="convert squad examples to features",
             )
+        )
     new_features = []
     unique_id = 1000000000
     example_index = 0
@@ -320,6 +322,7 @@ def squad_convert_examples_to_features(
             unique_id += 1
         example_index += 1
     features = new_features
+    del new_features
     if return_dataset == "pt":
         if not is_torch_available():
             raise RuntimeError("PyTorch must be installed to return a PyTorch dataset.")
