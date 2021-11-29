@@ -187,7 +187,7 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
         cls_index = span["input_ids"].index(tokenizer.cls_token_id)
 
         # p_mask: mask with 1 for token than cannot be in the answer (0 for token which can be in an answer)
-        # Original TF implem also keep the classification token (set to 0) (not sure why...)
+        # Original TF implementation also keep the classification token (set to 0) (not sure why...)
         p_mask = np.array(span["token_type_ids"])
 
         p_mask = np.minimum(p_mask, 1)
@@ -270,7 +270,7 @@ def squad_convert_examples_to_features(
         return_dataset: Default False. Either 'pt' or 'tf'.
             if 'pt': returns a torch.data.TensorDataset,
             if 'tf': returns a tf.data.Dataset
-        threads: multiple processing threadsa-smi
+        threads: multiple processing
 
 
     Returns:
@@ -294,7 +294,7 @@ def squad_convert_examples_to_features(
     # Defining helper methods
     features = []
     threads = min(threads, cpu_count())
-    with Pool(threads, initializer=squad_convert_example_to_features_init, initargs=(tokenizer,)) as p:
+    with Pool(threads, initializer=squad_convert_example_to_features_init, initargs=(tokenizer, )) as p:
         annotate_ = partial(
             squad_convert_example_to_features,
             max_seq_length=max_seq_length,
@@ -302,13 +302,11 @@ def squad_convert_examples_to_features(
             max_query_length=max_query_length,
             is_training=is_training,
         )
-        features = list(
-            tqdm(
+        features = tqdm(
                 p.imap(annotate_, examples, chunksize=32),
                 total=len(examples),
                 desc="convert squad examples to features",
             )
-        )
     new_features = []
     unique_id = 1000000000
     example_index = 0
@@ -322,7 +320,6 @@ def squad_convert_examples_to_features(
             unique_id += 1
         example_index += 1
     features = new_features
-    del new_features
     if return_dataset == "pt":
         if not is_torch_available():
             raise RuntimeError("PyTorch must be installed to return a PyTorch dataset.")

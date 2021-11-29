@@ -889,8 +889,8 @@ class PreTrainedTokenizer(object):
                 ``attention_mask``: list of indices specifying which tokens should be attended to by the model
                 ``overflowing_tokens``: list of overflowing tokens if a max length is specified.
                 ``num_truncated_tokens``: number of overflowing tokens a ``max_length`` is specified
-                ``special_tokens_mask``: if adding special tokens, this is a list of [0, 1], with 0 specifying special added
-                tokens and 1 specifying sequence tokens.
+                ``special_tokens_mask``: if adding special tokens, this is a list of [0, 1], with 0 specifying special
+                added tokens and 1 specifying sequence tokens.
         """
 
         def get_input_ids(text):
