@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa)."""
+""" Fine-tuning the library models for question answering on SQuAD 2.0."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -45,25 +45,23 @@ from file_utils import WEIGHTS_NAME, is_torch_available, is_tf_available
 from configuration_albert import AlbertConfig
 from tokenization_albert import AlbertTokenizer
 
-from modeling_highway_albert import AlbertForSequenceClassification as AlbertForSequenceClassificationHW
+from modeling_highway_albert import AlbertForQuestionAnswering as AlbertForQuestionAnsweringHW
 
-from modeling_albert import AlbertForSequenceClassification as AlbertForSequenceClassification
+from modeling_albert import AlbertForQuestionAnswering as AlbertForQuestionAnswering
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from datasets import load_metric
-from train_utils import EvalPrediction
-
 from squad import SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
+from metrics import squad_compute_metrics as compute_metrics
 
 logger = logging.getLogger(__name__)
 
 ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (AlbertConfig,)), ())
 
 MODEL_CLASSES = {
-    'albert': (AlbertConfig, AlbertForSequenceClassificationHW, AlbertTokenizer),
-    'albert_teacher': (AlbertConfig, AlbertForSequenceClassification, AlbertTokenizer),
+    'albert': (AlbertConfig, AlbertForQuestionAnsweringHW, AlbertTokenizer),
+    'albert_teacher': (AlbertConfig, AlbertForQuestionAnswering, AlbertTokenizer),
 }
 
 processors = {
@@ -439,10 +437,6 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
     eval_outputs_dirs = (args.output_dir, args.output_dir + '-MM') if args.task_name == "mnli" else (args.output_dir,)
 
     results = {}
-    metric = load_metric("squad_v2")
-
-    def compute_metrics(p: EvalPrediction):
-        return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
         eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
@@ -465,7 +459,7 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
         eval_loss = 0.0
         nb_eval_steps = 0
         preds = None
-        out_label_ids = None
+        out_average_pos = None
         exit_layer_counter = {(i + 1): 0 for i in range(model.num_layers)}
         st = time.time()
 
@@ -506,21 +500,23 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
                 outputs = model(**inputs)
                 if eval_highway:
                     exit_layer_counter[outputs[-1]] += 1
-                tmp_eval_loss, logits = outputs[:2]
+                logits = outputs[1]
 
-                eval_loss += tmp_eval_loss.mean().item()
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
+                out_average_pos = ((inputs['start_positions'] + inputs['end_positions']) / 2).detach().cpu().numpy()
             else:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                out_average_pos = np.append(out_average_pos,
+                                            ((inputs['start_positions'] +
+                                              inputs['end_positions']) / 2).detach().cpu().numpy(), axis=0)
 
         eval_time = time.time() - st
         print("Eval time:", eval_time)
 
-        eval_loss = eval_loss / nb_eval_steps
         preds = np.argmax(preds, axis=1)
-        result = compute_metrics(preds)
+        result = compute_metrics(eval_task, preds, out_average_pos)
         results.update(result)
 
         if eval_highway:
@@ -577,10 +573,6 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         features = torch.load(cached_features_file)
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
-        label_list = processor.get_labels()
-        if task in ['mnli', 'mnli-mm'] and args.model_type in ['roberta']:
-            # HACK(label indices are swapped in RoBERTa pretrained model)
-            label_list[1], label_list[2] = label_list[2], label_list[1]
         examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
             args.data_dir)
         features = convert_examples_to_features(examples,
@@ -588,7 +580,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
                                                 max_seq_length=args.max_seq_length,
                                                 doc_stride=args.doc_stride,
                                                 max_query_length=args.max_query_length,
-                                                is_training=args.do_train,
+                                                is_training=not evaluate,
                                                 return_dataset="pt",
                                                 threads=args.threads
                                                 )
@@ -898,9 +890,6 @@ def main():
     args.task_name = args.task_name.lower()
     if args.task_name not in processors:
         raise ValueError("Task not found: %s" % (args.task_name))
-    processor = processors[args.task_name]()
-    label_list = processor.get_labels()
-    num_labels = len(label_list)
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
@@ -909,22 +898,8 @@ def main():
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
 
-    # config = config_class.from_pretrained(args.config_name if args.config_name else args.model_name_or_path,
-    #                                       num_labels=num_labels,
-    #                                       finetuning_task=args.task_name,
-    #                                       cache_dir=args.cache_dir if args.cache_dir else None)
-    # tokenizer = tokenizer_class.from_pretrained(args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-    #                                             do_lower_case=args.do_lower_case,
-    #                                             cache_dir=args.cache_dir if args.cache_dir else None)
-    #
-    # #sys.stdout.flush()
-    # model = model_class.from_pretrained(args.model_name_or_path,
-    #                                     from_tf=bool('.ckpt' in args.model_name_or_path),
-    #                                     config=config,
-    #                                     cache_dir=args.cache_dir if args.cache_dir else None)
     config = config_class.from_pretrained(
         args.config_name if args.config_name else args.model_name_or_path,
-        num_labels=num_labels,
         finetuning_task=args.task_name,
         cache_dir=args.cache_dir if args.cache_dir else None,
         pruning_method=args.pruning_method,

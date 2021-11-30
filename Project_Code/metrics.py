@@ -50,9 +50,9 @@ if _has_sklearn:
             "corr": (pearson_corr + spearman_corr) / 2,
         }
 
-    """def squad_compute_metrics(task_name, preds, labels):
+    def squad_compute_metrics(task_name, preds, labels):
         assert len(preds) == len(labels)
         if task_name == "squad":
             return {"acc": simple_accuracy(preds, labels)}
         else:
-            raise KeyError(task_name)"""
+            raise KeyError(task_name)

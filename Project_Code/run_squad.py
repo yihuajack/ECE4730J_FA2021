@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Finetuning the library models for sequence classification on GLUE (Bert, XLM, XLNet, RoBERTa)."""
+""" Fine-tuning the library models for question answering on SQuAD 2.0."""
 
 from __future__ import absolute_import, division, print_function
 
@@ -45,11 +45,9 @@ from tokenization_albert import AlbertTokenizer
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from datasets import load_metric
-from train_utils import EvalPrediction
-
 from squad import SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
+from metrics import squad_compute_metrics as compute_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -223,16 +221,13 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
 
     return global_step, tr_loss / global_step
 
+
 def evaluate(args, model, tokenizer, prefix=""):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_task_names = ("mnli", "mnli-mm") if args.task_name == "mnli" else (args.task_name,)
     eval_outputs_dirs = (args.output_dir, args.output_dir + '-MM') if args.task_name == "mnli" else (args.output_dir,)
 
     results = {}
-    metric = load_metric("squad_v2")
-
-    def compute_metrics(p: EvalPrediction):
-        return metric.compute(predictions=p.predictions, references=p.label_ids)
 
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
         eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
@@ -253,9 +248,9 @@ def evaluate(args, model, tokenizer, prefix=""):
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        eval_loss = 0.0
         nb_eval_steps = 0
         preds = None
+        out_average_pos = None
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
@@ -269,18 +264,20 @@ def evaluate(args, model, tokenizer, prefix=""):
                     inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] \
                         else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
                 outputs = model(**inputs)
-                tmp_eval_loss, logits = outputs[:2]
+                logits = outputs[1]
 
-                eval_loss += tmp_eval_loss.mean().item()
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
+                out_average_pos = ((inputs['start_positions'] + inputs['end_positions']) / 2).detach().cpu().numpy()
             else:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                out_average_pos = np.append(out_average_pos,
+                                            ((inputs['start_positions'] +
+                                              inputs['end_positions']) / 2).detach().cpu().numpy(), axis=0)
 
-        eval_loss = eval_loss / nb_eval_steps
         preds = np.argmax(preds, axis=1)
-        result = compute_metrics(preds)
+        result = compute_metrics(eval_task, preds, out_average_pos)
         results.update(result)
 
         output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
@@ -316,7 +313,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
                                                 max_seq_length=args.max_seq_length,
                                                 doc_stride=args.doc_stride,
                                                 max_query_length=args.max_query_length,
-                                                is_training=args.do_train,
+                                                is_training=not evaluate,
                                                 return_dataset="pt",
                                                 threads=args.threads
                                                 )
