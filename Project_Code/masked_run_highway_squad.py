@@ -51,7 +51,9 @@ from modeling_albert import AlbertForSequenceClassification as AlbertForSequence
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from metrics import squad_compute_metrics as compute_metrics
+from datasets import load_metric
+from train_utils import EvalPrediction
+
 from squad import SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
 
@@ -66,10 +68,6 @@ MODEL_CLASSES = {
 
 processors = {
     "squad": SquadV2Processor,
-}
-
-output_modes = {
-    "squad": "classification",
 }
 
 
@@ -441,6 +439,11 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
     eval_outputs_dirs = (args.output_dir, args.output_dir + '-MM') if args.task_name == "mnli" else (args.output_dir,)
 
     results = {}
+    metric = load_metric("squad_v2")
+
+    def compute_metrics(p: EvalPrediction):
+        return metric.compute(predictions=p.predictions, references=p.label_ids)
+
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
         eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
         if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
@@ -509,20 +512,15 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
-                out_label_ids = inputs['labels'].detach().cpu().numpy()
             else:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-                out_label_ids = np.append(out_label_ids, inputs['labels'].detach().cpu().numpy(), axis=0)
 
         eval_time = time.time() - st
         print("Eval time:", eval_time)
 
         eval_loss = eval_loss / nb_eval_steps
-        if args.output_mode == "classification":
-            preds = np.argmax(preds, axis=1)
-        elif args.output_mode == "regression":
-            preds = np.squeeze(preds)
-        result = compute_metrics(eval_task, preds, out_label_ids)
+        preds = np.argmax(preds, axis=1)
+        result = compute_metrics(preds)
         results.update(result)
 
         if eval_highway:
@@ -568,7 +566,6 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
     processor = processors[task]()
-    output_mode = output_modes[task]
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(args.data_dir, 'cached_{}_{}_{}_{}'.format(
         'dev' if evaluate else 'train',
@@ -609,12 +606,11 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
-        if output_mode == "classification":
-            all_labels = torch.tensor([f.label for f in features], dtype=torch.long)
-        elif output_mode == "regression":
-            all_labels = torch.tensor([f.label for f in features], dtype=torch.float)
+        all_start_positions = torch.tensor([f.start_positions for f in features], dtype=torch.long)
+        all_end_positions = torch.tensor([f.end_positions for f in features], dtype=torch.long)
 
-        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_labels)
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_start_positions,
+                                all_end_positions)
         return dataset
     else:
         raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
@@ -903,7 +899,6 @@ def main():
     if args.task_name not in processors:
         raise ValueError("Task not found: %s" % (args.task_name))
     processor = processors[args.task_name]()
-    args.output_mode = output_modes[args.task_name]
     label_list = processor.get_labels()
     num_labels = len(label_list)
 

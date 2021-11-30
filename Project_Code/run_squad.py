@@ -45,7 +45,9 @@ from tokenization_albert import AlbertTokenizer
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from metrics import squad_compute_metrics as compute_metrics
+from datasets import load_metric
+from train_utils import EvalPrediction
+
 from squad import SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
 
@@ -59,10 +61,6 @@ MODEL_CLASSES = {
 
 processors = {
     "squad": SquadV2Processor,
-}
-
-output_modes = {
-    "squad": "classification",
 }
 
 
@@ -150,8 +148,8 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
                       'start_positions': batch[3],
                       'end_positions': batch[4]}
             if args.model_type != 'distilbert':
-                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet',
-                                                                           'albert'] else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
+                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
+                # XLM, DistilBERT and RoBERTa don't use segment_ids
             outputs = model(**inputs)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
@@ -225,13 +223,17 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
 
     return global_step, tr_loss / global_step
 
-
 def evaluate(args, model, tokenizer, prefix=""):
     # Loop to handle MNLI double evaluation (matched, mis-matched)
     eval_task_names = ("mnli", "mnli-mm") if args.task_name == "mnli" else (args.task_name,)
     eval_outputs_dirs = (args.output_dir, args.output_dir + '-MM') if args.task_name == "mnli" else (args.output_dir,)
 
     results = {}
+    metric = load_metric("squad_v2")
+
+    def compute_metrics(p: EvalPrediction):
+        return metric.compute(predictions=p.predictions, references=p.label_ids)
+
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
         eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
 
@@ -254,7 +256,6 @@ def evaluate(args, model, tokenizer, prefix=""):
         eval_loss = 0.0
         nb_eval_steps = 0
         preds = None
-        out_label_ids = None
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
@@ -265,7 +266,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                           'start_positions': batch[3],
                           'end_positions': batch[4]}
                 if args.model_type != 'distilbert':
-                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert']\
+                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] \
                         else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
@@ -274,17 +275,12 @@ def evaluate(args, model, tokenizer, prefix=""):
             nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
-                out_label_ids = inputs['labels'].detach().cpu().numpy()
             else:
                 preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-                out_label_ids = np.append(out_label_ids, inputs['labels'].detach().cpu().numpy(), axis=0)
 
         eval_loss = eval_loss / nb_eval_steps
-        if args.output_mode == "classification":
-            preds = np.argmax(preds, axis=1)
-        elif args.output_mode == "regression":
-            preds = np.squeeze(preds)
-        result = compute_metrics(eval_task, preds, out_label_ids)
+        preds = np.argmax(preds, axis=1)
+        result = compute_metrics(preds)
         results.update(result)
 
         output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
@@ -302,7 +298,6 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
     processor = processors[task]()
-    output_mode = output_modes[task]
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(args.data_dir, 'cached_{}_{}_{}_{}'.format(
         'dev' if evaluate else 'train',
@@ -330,7 +325,8 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
             torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
 
     if is_torch_available():
         return features[1]
@@ -339,11 +335,8 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
-        if output_mode == "classification":
-            all_start_positions = torch.tensor([f.start_positions for f in features], dtype=torch.long)
-            all_end_positions = torch.tensor([f.end_positions for f in features], dtype=torch.long)
-        elif output_mode == "regression":
-            all_labels = torch.tensor([f.label for f in features], dtype=torch.float)
+        all_start_positions = torch.tensor([f.start_positions for f in features], dtype=torch.long)
+        all_end_positions = torch.tensor([f.end_positions for f in features], dtype=torch.long)
 
         dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_start_positions,
                                 all_end_positions)
@@ -485,7 +478,6 @@ def main():
     if args.task_name not in processors:
         raise ValueError("Task not found: %s" % (args.task_name))
     processor = processors[args.task_name]()
-    args.output_mode = output_modes[args.task_name]
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
@@ -514,7 +506,7 @@ def main():
         ramp_epochs = end_prune_epoch - start_prune_epoch
         for i in range(start_prune_epoch, end_prune_epoch):
             prune_schedule[i] = float((i - start_prune_epoch + 1)) / ramp_epochs * (
-                        args.prune_percentile - prune_schedule[0]) + prune_schedule[0]
+                    args.prune_percentile - prune_schedule[0]) + prune_schedule[0]
         for i in range(end_prune_epoch, (n_train_epochs + 1 - args.start_epoch)):
             prune_schedule[i] = args.prune_percentile
 
