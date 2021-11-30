@@ -17,7 +17,6 @@
 
 from configuration_utils import PretrainedConfig
 
-
 ALBERT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
     "albert-base-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-base-config.json",
     "albert-large-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-large-config.json",
@@ -107,32 +106,32 @@ class AlbertConfig(PretrainedConfig):
     model_type = "albert"
 
     def __init__(
-        self,
-        vocab_size=30000,
-        embedding_size=128,
-        hidden_size=4096,
-        num_hidden_layers=12,
-        num_hidden_groups=1,
-        num_attention_heads=64,
-        intermediate_size=16384,
-        inner_group_num=1,
-        hidden_act="gelu_new",
-        hidden_dropout_prob=0,
-        attention_probs_dropout_prob=0,
-        max_position_embeddings=512,
-        type_vocab_size=2,
-        initializer_range=0.02,
-        layer_norm_eps=1e-12,
-        classifier_dropout_prob=0.1,
-        one_class=False,
-        entropy_predictor=False,
-        lookup_table_file="sst2_lookup_table_opt.csv",
-        predict_layer = 1,
-        predict_average_layers=0,
-        extra_layer=0,
-        get_predict_acc=False,
-        no_ee_before=False,
-        **kwargs
+            self,
+            vocab_size=30000,
+            embedding_size=128,
+            hidden_size=4096,
+            num_hidden_layers=12,
+            num_hidden_groups=1,
+            num_attention_heads=64,
+            intermediate_size=16384,
+            inner_group_num=1,
+            hidden_act="gelu_new",
+            hidden_dropout_prob=0,
+            attention_probs_dropout_prob=0,
+            max_position_embeddings=512,
+            type_vocab_size=2,
+            initializer_range=0.02,
+            layer_norm_eps=1e-12,
+            classifier_dropout_prob=0.1,
+            one_class=False,
+            entropy_predictor=False,
+            lookup_table_file="sst2_lookup_table_opt.csv",
+            predict_layer=1,
+            predict_average_layers=0,
+            extra_layer=0,
+            get_predict_acc=False,
+            no_ee_before=False,
+            **kwargs
     ):
         super().__init__(**kwargs)
 

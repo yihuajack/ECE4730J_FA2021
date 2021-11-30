@@ -61,10 +61,6 @@ processors = {
     "squad": SquadV2Processor,
 }
 
-output_modes = {
-    "squad": "classification",
-}
-
 
 def set_seed(args):
     random.seed(args.seed)
@@ -150,8 +146,8 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
                       'start_positions': batch[3],
                       'end_positions': batch[4]}
             if args.model_type != 'distilbert':
-                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet',
-                                                                           'albert'] else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
+                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
+                # XLM, DistilBERT and RoBERTa don't use segment_ids
             outputs = model(**inputs)
             loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
 
@@ -265,8 +261,8 @@ def evaluate(args, model, tokenizer, prefix=""):
                           'start_positions': batch[3],
                           'end_positions': batch[4]}
                 if args.model_type != 'distilbert':
-                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert']\
-                        else None  # XLM, DistilBERT and RoBERTa don't use segment_ids
+                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
+                    # XLM, DistilBERT and RoBERTa don't use segment_ids
                 outputs = model(**inputs)
                 tmp_eval_loss, logits = outputs[:2]
 
@@ -280,10 +276,7 @@ def evaluate(args, model, tokenizer, prefix=""):
                 out_label_ids = np.append(out_label_ids, inputs['labels'].detach().cpu().numpy(), axis=0)
 
         eval_loss = eval_loss / nb_eval_steps
-        if args.output_mode == "classification":
-            preds = np.argmax(preds, axis=1)
-        elif args.output_mode == "regression":
-            preds = np.squeeze(preds)
+        preds = np.argmax(preds, axis=1)
         result = compute_metrics(eval_task, preds, out_label_ids)
         results.update(result)
 
@@ -299,10 +292,10 @@ def evaluate(args, model, tokenizer, prefix=""):
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
     if args.local_rank not in [-1, 0] and not evaluate:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
 
     processor = processors[task]()
-    output_mode = output_modes[task]
     # Load data features from cache or dataset file
     cached_features_file = os.path.join(args.data_dir, 'cached_{}_{}_{}_{}'.format(
         'dev' if evaluate else 'train',
@@ -339,11 +332,8 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
-        if output_mode == "classification":
-            all_start_positions = torch.tensor([f.start_positions for f in features], dtype=torch.long)
-            all_end_positions = torch.tensor([f.end_positions for f in features], dtype=torch.long)
-        elif output_mode == "regression":
-            all_labels = torch.tensor([f.label for f in features], dtype=torch.float)
+        all_start_positions = torch.tensor([f.start_positions for f in features], dtype=torch.long)
+        all_end_positions = torch.tensor([f.end_positions for f in features], dtype=torch.long)
 
         dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_start_positions,
                                 all_end_positions)
@@ -485,7 +475,6 @@ def main():
     if args.task_name not in processors:
         raise ValueError("Task not found: %s" % (args.task_name))
     processor = processors[args.task_name]()
-    args.output_mode = output_modes[args.task_name]
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
@@ -521,7 +510,8 @@ def main():
         print("Prune schedule is: ", prune_schedule)
 
     if args.local_rank == 0:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     model.to(args.device)
 
