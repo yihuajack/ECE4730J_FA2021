@@ -248,7 +248,6 @@ def evaluate(args, model, tokenizer, prefix=""):
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        nb_eval_steps = 0
         preds = None
         out_average_pos = None
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
@@ -264,9 +263,8 @@ def evaluate(args, model, tokenizer, prefix=""):
                     inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
                     # XLM, DistilBERT and RoBERTa don't use segment_ids
                 outputs = model(**inputs)
-                logits = outputs[1]
+                start_logits, end_logits = outputs[1:3]
 
-            nb_eval_steps += 1
             if preds is None:
                 preds = logits.detach().cpu().numpy()
                 out_average_pos = ((inputs['start_positions'] + inputs['end_positions']) / 2).detach().cpu().numpy()
@@ -476,7 +474,6 @@ def main():
     args.task_name = args.task_name.lower()
     if args.task_name not in processors:
         raise ValueError("Task not found: %s" % (args.task_name))
-    processor = processors[args.task_name]()
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:

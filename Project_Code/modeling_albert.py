@@ -28,9 +28,7 @@ from modeling_utils import PreTrainedModel, prune_linear_layer
 
 from file_utils import add_start_docstrings, add_start_docstrings_to_callable
 
-
 logger = logging.getLogger(__name__)
-
 
 ALBERT_PRETRAINED_MODEL_ARCHIVE_MAP = {
     "albert-base-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-base-pytorch_model.bin",
@@ -245,8 +243,8 @@ class AlbertAttention(BertSelfAttention):
         # Should find a better way to do this
         w = (
             self.dense.weight.t()
-            .view(self.num_attention_heads, self.attention_head_size, self.hidden_size)
-            .to(context_layer.dtype)
+                .view(self.num_attention_heads, self.attention_head_size, self.hidden_size)
+                .to(context_layer.dtype)
         )
         b = self.dense.bias.to(context_layer.dtype)
 
@@ -255,20 +253,22 @@ class AlbertAttention(BertSelfAttention):
         layernormed_context_layer = self.LayerNorm(input_ids + projected_context_layer_dropout)
         return (layernormed_context_layer, attention_probs) if self.output_attentions else (layernormed_context_layer,)
 
+
 AlbertLayerNorm = torch.nn.LayerNorm
+
 
 class AlbertLayer(nn.Module):
     def __init__(self, config, params):
         super().__init__()
 
         self.config = config
-        self.full_layer_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps) #comment this??
+        self.full_layer_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)  # comment this??
         self.attention = AlbertAttention(config, params)
-        #self.is_decoder = config.is_decoder
-        #if self.is_decoder:
+        # self.is_decoder = config.is_decoder
+        # if self.is_decoder:
         #    self.crossattention = AlbertAttention(config)
-        #self.intermediate = AlbertIntermediate(config)
-        #self.output = AlbertOutput(config)
+        # self.intermediate = AlbertIntermediate(config)
+        # self.output = AlbertOutput(config)
         self.ffn = nn.Linear(config.hidden_size, config.intermediate_size)
         self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
         self.activation = ACT2FN[config.hidden_act]
@@ -280,7 +280,7 @@ class AlbertLayer(nn.Module):
         ffn_output = self.ffn_output(ffn_output)
         hidden_states = self.full_layer_layer_norm(ffn_output + attention_output[0])
         outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
-        #print(outputs)
+        # print(outputs)
         return outputs
 
 
@@ -322,7 +322,8 @@ class AlbertTransformer(nn.Module):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
         self.embedding_hidden_mapping_in = nn.Linear(config.embedding_size, config.hidden_size)
-        self.albert_layer_groups = nn.ModuleList([AlbertLayerGroup(config, params=params) for _ in range(config.num_hidden_groups)])
+        self.albert_layer_groups = nn.ModuleList(
+            [AlbertLayerGroup(config, params=params) for _ in range(config.num_hidden_groups)])
 
     def forward(self, hidden_states, attention_mask=None, head_mask=None):
         hidden_states = self.embedding_hidden_mapping_in(hidden_states)
@@ -342,7 +343,7 @@ class AlbertTransformer(nn.Module):
             layer_group_output = self.albert_layer_groups[group_idx](
                 hidden_states,
                 attention_mask,
-                head_mask[group_idx * layers_per_group : (group_idx + 1) * layers_per_group],
+                head_mask[group_idx * layers_per_group:(group_idx + 1) * layers_per_group],
             )
             hidden_states = layer_group_output[0]
 
@@ -438,7 +439,6 @@ ALBERT_INPUTS_DOCSTRING = r"""
     ALBERT_START_DOCSTRING,
 )
 class AlbertModel(AlbertPreTrainedModel):
-
     config_class = AlbertConfig
     pretrained_model_archive_map = ALBERT_PRETRAINED_MODEL_ARCHIVE_MAP
     load_tf_weights = load_tf_weights_in_albert
@@ -488,13 +488,13 @@ class AlbertModel(AlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
     ):
         r"""
     Return:
@@ -578,8 +578,8 @@ class AlbertModel(AlbertPreTrainedModel):
         pooled_output = self.pooler_activation(self.pooler(sequence_output[:, 0]))
 
         outputs = (sequence_output, pooled_output) + encoder_outputs[
-            1:
-        ]  # add hidden_states and attentions if they are here
+                                                     1:
+                                                     ]  # add hidden_states and attentions if they are here
         return outputs
 
 
@@ -628,14 +628,14 @@ class AlbertForMaskedLM(AlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        masked_lm_labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            masked_lm_labels=None,
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -713,14 +713,14 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -809,15 +809,15 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        start_positions=None,
-        end_positions=None,
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            start_positions=None,
+            end_positions=None,
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):

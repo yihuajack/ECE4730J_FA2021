@@ -11,7 +11,6 @@ from file_utils import is_tf_available, is_torch_available
 from tokenization_bert import whitespace_tokenize
 from utils import DataProcessor
 
-
 if is_torch_available():
     import torch
     from torch.utils.data import TensorDataset
@@ -28,7 +27,7 @@ def _improve_answer_span(doc_tokens, input_start, input_end, tokenizer, orig_ans
 
     for new_start in range(input_start, input_end + 1):
         for new_end in range(input_end, new_start - 1, -1):
-            text_span = " ".join(doc_tokens[new_start : (new_end + 1)])
+            text_span = " ".join(doc_tokens[new_start: (new_end + 1)])
             if text_span == tok_answer_text:
                 return (new_start, new_end)
 
@@ -91,7 +90,7 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
         end_position = example.end_position
 
         # If the answer cannot be found in the text, then skip this example.
-        actual_text = " ".join(example.doc_tokens[start_position : (end_position + 1)])
+        actual_text = " ".join(example.doc_tokens[start_position:(end_position + 1)])
         cleaned_answer_text = " ".join(whitespace_tokenize(example.answer_text))
         if actual_text.find(cleaned_answer_text) == -1:
             logger.warning("Could not find answer: '%s' vs. '%s'", actual_text, cleaned_answer_text)
@@ -234,7 +233,8 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
                 span["token_type_ids"],
                 cls_index,
                 p_mask.tolist(),
-                example_index=0,  # Can not set unique_id and example_index here. They will be set after multiple processing.
+                example_index=0,
+                # Can not set unique_id and example_index here. They will be set after multiple processing.
                 unique_id=0,
                 paragraph_len=span["paragraph_len"],
                 token_is_max_context=span["token_is_max_context"],
@@ -254,7 +254,7 @@ def squad_convert_example_to_features_init(tokenizer_for_convert):
 
 
 def squad_convert_examples_to_features(
-    examples, tokenizer, max_seq_length, doc_stride, max_query_length, is_training, return_dataset=False, threads=1
+        examples, tokenizer, max_seq_length, doc_stride, max_query_length, is_training, return_dataset=False, threads=1
 ):
     """
     Converts a list of examples into a list of features that can be directly given as input to a model.
@@ -294,7 +294,7 @@ def squad_convert_examples_to_features(
     # Defining helper methods
     features = []
     threads = min(threads, cpu_count())
-    with Pool(threads, initializer=squad_convert_example_to_features_init, initargs=(tokenizer, )) as p:
+    with Pool(threads, initializer=squad_convert_example_to_features_init, initargs=(tokenizer,)) as p:
         annotate_ = partial(
             squad_convert_example_to_features,
             max_seq_length=max_seq_length,
@@ -488,7 +488,7 @@ class SquadProcessor(DataProcessor):
             raise ValueError("SquadProcessor should be instantiated via SquadV1Processor or SquadV2Processor")
 
         with open(
-            os.path.join(data_dir, self.train_file if filename is None else filename), "r", encoding="utf-8"
+                os.path.join(data_dir, self.train_file if filename is None else filename), "r", encoding="utf-8"
         ) as reader:
             input_data = json.load(reader)["data"]
         return self._create_examples(input_data, "train")
@@ -509,7 +509,7 @@ class SquadProcessor(DataProcessor):
             raise ValueError("SquadProcessor should be instantiated via SquadV1Processor or SquadV2Processor")
 
         with open(
-            os.path.join(data_dir, self.dev_file if filename is None else filename), "r", encoding="utf-8"
+                os.path.join(data_dir, self.dev_file if filename is None else filename), "r", encoding="utf-8"
         ) as reader:
             input_data = json.load(reader)["data"]
         return self._create_examples(input_data, "dev")
@@ -582,15 +582,15 @@ class SquadExample(object):
     """
 
     def __init__(
-        self,
-        qas_id,
-        question_text,
-        context_text,
-        answer_text,
-        start_position_character,
-        title,
-        answers=[],
-        is_impossible=False,
+            self,
+            qas_id,
+            question_text,
+            context_text,
+            answer_text,
+            start_position_character,
+            title,
+            answers=[],
+            is_impossible=False,
     ):
         self.qas_id = qas_id
         self.question_text = question_text
@@ -655,21 +655,21 @@ class SquadFeatures(object):
     """
 
     def __init__(
-        self,
-        input_ids,
-        attention_mask,
-        token_type_ids,
-        cls_index,
-        p_mask,
-        example_index,
-        unique_id,
-        paragraph_len,
-        token_is_max_context,
-        tokens,
-        token_to_orig_map,
-        start_position,
-        end_position,
-        is_impossible,
+            self,
+            input_ids,
+            attention_mask,
+            token_type_ids,
+            cls_index,
+            p_mask,
+            example_index,
+            unique_id,
+            paragraph_len,
+            token_is_max_context,
+            tokens,
+            token_to_orig_map,
+            start_position,
+            end_position,
+            is_impossible,
     ):
         self.input_ids = input_ids
         self.attention_mask = attention_mask
