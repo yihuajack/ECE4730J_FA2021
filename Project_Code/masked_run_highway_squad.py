@@ -22,7 +22,7 @@ import glob
 import logging
 import os
 import random
-import time
+import timeit
 
 import numpy as np
 import torch
@@ -32,13 +32,15 @@ from torch.autograd import Variable
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm, trange
+
+from squad_metrics import compute_predictions_logits, squad_evaluate
 
 try:
     from torch.utils.tensorboard import SummaryWriter
 except:
     from tensorboardX import SummaryWriter
 
-from tqdm import tqdm, trange
 from multiprocessing import cpu_count
 
 from file_utils import WEIGHTS_NAME, is_torch_available, is_tf_available
@@ -51,9 +53,8 @@ from modeling_albert import AlbertForQuestionAnswering as AlbertForQuestionAnswe
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from squad import SquadV2Processor
+from squad import SquadResult, SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
-from metrics import squad_compute_metrics as compute_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,17 @@ processors = {
 }
 
 
+def get_wanted_result(result):
+    if "exact" in result:
+        print_result = result["exact"]
+    elif "f1" in result:
+        print_result = result["f1"]
+    else:
+        print(result)
+        exit(1)
+    return print_result
+
+
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -77,19 +89,8 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
 
-def get_wanted_result(result):
-    if "spearmanr" in result:
-        print_result = result["spearmanr"]
-    elif "f1" in result:
-        print_result = result["f1"]
-    elif "mcc" in result:
-        print_result = result["mcc"]
-    elif "acc" in result:
-        print_result = result["acc"]
-    else:
-        print(result)
-        exit(1)
-    return print_result
+def to_list(tensor):
+    return tensor.detach().cpu().tolist()
 
 
 def schedule_threshold(
@@ -293,20 +294,20 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
 
             inputs = {'input_ids': batch[0],
                       'attention_mask': batch[1],
+                      'token_type_ids': batch[2],
                       'start_positions': batch[3],
                       'end_positions': batch[4]}
-            if args.model_type != 'distilbert':  # and args.model_type != 'albert':
-                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'masked_bert', 'bert_teacher',
-                                                                           'albert', 'masked_albert',
-                                                                           'albert_teacher'] else None
+            if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
+                del inputs["token_type_ids"]
                 # XLM, DistilBERT and RoBERTa don't use segment_ids
             inputs['train_highway'] = train_highway
             if "masked" in args.model_type:
                 inputs["threshold"] = threshold
 
             outputs = model(**inputs)
-            # loss, logits_stu = outputs  # model outputs are always tuple in transformers (see doc)
-            loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+            # loss, logits_stu = outputs
+            # model outputs are always tuple in transformers (see doc)
+            loss = outputs[0]
             logits_stu = outputs[1]
             # Distillation loss
             if teacher is not None:
@@ -368,9 +369,10 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
                 model.zero_grad()
                 global_step += 1
 
+                # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    # Log metrics
-                    if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
+                    # Only evaluate when single GPU otherwise metrics may not average well
+                    if args.local_rank == -1 and args.evaluate_during_training:
                         results = evaluate(args, model, tokenizer)
                         for key, value in results.items():
                             tb_writer.add_scalar('eval_{}'.format(key), value, global_step)
@@ -378,13 +380,13 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
                     tb_writer.add_scalar('loss', (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
+                # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
-                    # Save model checkpoint
                     output_dir = os.path.join(args.output_dir, 'checkpoint-{}'.format(global_step))
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    model_to_save = model.module if hasattr(model,
-                                                            'module') else model  # Take care of distributed/parallel training
+                    # Take care of distributed/parallel training
+                    model_to_save = model.module if hasattr(model, 'module') else model
                     model_to_save.save_pretrained(output_dir)
                     torch.save(args, os.path.join(output_dir, 'training_args.bin'))
                     logger.info("Saving model checkpoint to %s", output_dir)
@@ -440,7 +442,7 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
     results = {}
 
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
-        eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
+        features, eval_dataset, examples = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
         if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
             os.makedirs(eval_output_dir)
 
@@ -449,7 +451,7 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
         eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
-        # multi-gpu eval
+        # multi-gpu evaluate
         if args.n_gpu > 1:
             model = torch.nn.DataParallel(model)
 
@@ -457,12 +459,12 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
+
+        all_results = []
+        start_time = timeit.default_timer()
         eval_loss = 0.0
         nb_eval_steps = 0
-        preds = None
-        out_average_pos = None
         exit_layer_counter = {(i + 1): 0 for i in range(model.num_layers)}
-        st = time.time()
 
         # Global TopK
         if args.global_topk:
@@ -475,13 +477,13 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
             with torch.no_grad():
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
-                          'start_positions': batch[3],
-                          'end_positions': batch[4]}
-                if args.model_type != 'distilbert':  # and args.model_type != 'albert':
-                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'masked_bert', 'bert_teacher',
-                                                                               'albert', 'masked_albert',
-                                                                               'albert_teacher']  else None
+                          'token_type_ids': batch[2],
+                          }
+                if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
+                    del inputs["token_type_ids"]
                     # XLM, DistilBERT and RoBERTa don't use segment_ids
+
+                feature_indices = batch[3]
 
                 if "masked" in args.model_type:
                     inputs["threshold"] = args.final_threshold
@@ -501,24 +503,45 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
                 outputs = model(**inputs)
                 if eval_highway:
                     exit_layer_counter[outputs[-1]] += 1
-                logits = outputs[1]
 
             nb_eval_steps += 1
-            if preds is None:
-                preds = logits.detach().cpu().numpy()
-                out_average_pos = ((inputs['start_positions'] + inputs['end_positions']) / 2).detach().cpu().numpy()
-            else:
-                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-                out_average_pos = np.append(out_average_pos,
-                                            ((inputs['start_positions'] +
-                                              inputs['end_positions']) / 2).detach().cpu().numpy(), axis=0)
+            for i, feature_index in enumerate(feature_indices):
+                eval_feature = features[feature_index.item()]
+                unique_id = int(eval_feature.unique_id)
 
-        eval_time = time.time() - st
-        print("Eval time:", eval_time)
+                output = [to_list(output[i]) for output in outputs]
 
-        preds = np.argmax(preds, axis=1)
-        result = compute_metrics(eval_task, preds, out_average_pos)
-        results.update(result)
+                # len(output) < 5 except XLNet, XLM
+                start_logit, end_logit = output
+                result = SquadResult(unique_id, start_logit, end_logit)
+                all_results.append(result)
+
+        evalTime = timeit.default_timer() - start_time
+        logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(eval_dataset))
+
+        # Compute predictions
+        output_prediction_file = os.path.join(args.output_dir, "predictions_{}.json".format(prefix))
+        output_nbest_file = os.path.join(args.output_dir, "nbest_predictions_{}.json".format(prefix))
+        output_null_log_odds_file = os.path.join(args.output_dir, "null_odds_{}.json".format(prefix))
+
+        predictions = compute_predictions_logits(
+            examples,
+            features,
+            all_results,
+            n_best_size=20,
+            max_answer_length=30,
+            do_lower_case=args.do_lower_case,
+            output_prediction_file=output_prediction_file,
+            output_nbest_file=output_nbest_file,
+            output_null_log_odds_file=output_null_log_odds_file,
+            verbose_logging=True,
+            version_2_with_negative=True,
+            null_score_diff_threshold=0.0,
+            tokenizer=tokenizer,
+        )
+
+        # Compute the F1 and exact scores.
+        results = squad_evaluate(examples, predictions)
 
         if eval_highway:
             print("Exit layer counter", exit_layer_counter)
@@ -540,20 +563,18 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
                              "/entropy_{}.npy".format(args.early_exit_entropy)
                 if not os.path.exists(os.path.dirname(save_fname)):
                     os.makedirs(os.path.dirname(save_fname))
-                print_result = get_wanted_result(result)
-                print(print_result)
                 np.save(save_fname,
                         np.array([exit_layer_counter,
-                                  eval_time,
+                                  evalTime,
                                   actual_cost / full_cost,
-                                  print_result]))
+                                  results]))
 
         output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
         with open(output_eval_file, "w") as writer:
             logger.info("***** Eval results {} *****".format(prefix))
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(result[key]))
-                writer.write("%s = %s\n" % (key, str(result[key])))
+            for key in sorted(results.keys()):
+                logger.info("  %s = %s", key, str(results[key]))
+                writer.write("%s = %s\n" % (key, str(results[key])))
 
     return results
 
@@ -576,15 +597,15 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         logger.info("Creating features from dataset file at %s", args.data_dir)
         examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
             args.data_dir)
-        features = convert_examples_to_features(examples,
-                                                tokenizer,
-                                                max_seq_length=args.max_seq_length,
-                                                doc_stride=args.doc_stride,
-                                                max_query_length=args.max_query_length,
-                                                is_training=not evaluate,
-                                                return_dataset="pt",
-                                                threads=args.threads
-                                                )
+        features, dataset = convert_examples_to_features(examples,
+                                                         tokenizer,
+                                                         max_seq_length=args.max_seq_length,
+                                                         doc_stride=args.doc_stride,
+                                                         max_query_length=args.max_query_length,
+                                                         is_training=not evaluate,
+                                                         return_dataset="pt",
+                                                         threads=args.threads
+                                                         )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(features, cached_features_file)
@@ -593,7 +614,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
 
     if is_torch_available():
-        return features[1]
+        return features, dataset, examples
     elif is_tf_available():
         # Convert to Tensors and build dataset
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -612,7 +633,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    # Required parameters
     parser.add_argument("--data_dir", default=None, type=str, required=True,
                         help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
     parser.add_argument("--model_type", default=None, type=str, required=True,
@@ -627,7 +648,7 @@ def main():
     parser.add_argument("--plot_data_dir", default="./plotting/", type=str, required=False,
                         help="The directory to store data for plotting figures.")
 
-    ## Other parameters
+    # Other parameters
     parser.add_argument("--config_name", default="", type=str,
                         help="Pretrained config name or path if not the same as model_name")
     parser.add_argument("--tokenizer_name", default="", type=str,
@@ -964,7 +985,7 @@ def main():
         ramp_epochs = end_prune_epoch - start_prune_epoch
         for i in range(start_prune_epoch, end_prune_epoch):
             prune_schedule[i] = float((i - start_prune_epoch + 1)) / ramp_epochs * (
-                        args.prune_percentile - prune_schedule[0]) + prune_schedule[0]
+                    args.prune_percentile - prune_schedule[0]) + prune_schedule[0]
         for i in range(end_prune_epoch, (n_train_epochs + 1 - args.start_epoch)):
             prune_schedule[i] = args.prune_percentile
 
@@ -979,7 +1000,12 @@ def main():
 
     # Training
     if args.do_train:
-        train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        if is_torch_available():
+            train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)[1]
+        elif is_tf_available():
+            train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        else:
+            raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
         if args.fxp_and_prune:
             global_step, tr_loss = train(args, train_dataset, model, tokenizer, teacher=teacher,
                                          prune_schedule=prune_schedule)
@@ -1050,8 +1076,7 @@ def main():
             model.to(args.device)
             result = evaluate(args, model, tokenizer, prefix=prefix,
                               eval_highway=args.eval_highway)
-            print_result = get_wanted_result(result)
-            print("Result: {}".format(print_result))
+            print("Result: {}".format(result))
             if args.eval_each_highway:
                 last_layer_results = print_result
                 each_layer_results = []

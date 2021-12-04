@@ -1,7 +1,19 @@
+# Copyright 2020 The HuggingFace Team, the AllenNLP library authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
-Utilities for working with the local dataset cache.
-This file is adapted from the AllenNLP library at https://github.com/allenai/allennlp
-Copyright by the AllenNLP authors.
+Utilities for working with the local dataset cache. Parts of this file is adapted from the AllenNLP library at
+https://github.com/allenai/allennlp.
 """
 
 import fnmatch
@@ -15,6 +27,7 @@ from functools import partial, wraps
 from hashlib import sha256
 from typing import Optional
 from urllib.parse import urlparse
+import importlib.util
 
 import boto3
 import requests
@@ -400,3 +413,14 @@ def get_from_cache(
             json.dump(meta, meta_file)
 
     return cache_path
+
+
+def is_torch_tpu_available():
+    if not _torch_available:
+        return False
+    # This test is probably enough, but just in case, we unpack a bit.
+    if importlib.util.find_spec("torch_xla") is None:
+        return False
+    if importlib.util.find_spec("torch_xla.core") is None:
+        return False
+    return importlib.util.find_spec("torch_xla.core.xla_model") is not None

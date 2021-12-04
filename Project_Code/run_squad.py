@@ -22,6 +22,7 @@ import glob
 import logging
 import os
 import random
+import timeit
 
 import numpy as np
 import torch
@@ -29,13 +30,15 @@ from torch.autograd import Variable
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm, trange
+
+from squad_metrics import compute_predictions_logits, squad_evaluate
 
 try:
     from torch.utils.tensorboard import SummaryWriter
 except:
     from tensorboardX import SummaryWriter
 
-from tqdm import tqdm, trange
 from multiprocessing import cpu_count
 
 from file_utils import WEIGHTS_NAME, is_torch_available, is_tf_available
@@ -45,9 +48,8 @@ from tokenization_albert import AlbertTokenizer
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
-from squad import SquadV2Processor
+from squad import SquadResult, SquadV2Processor
 from squad import squad_convert_examples_to_features as convert_examples_to_features
-from metrics import squad_compute_metrics as compute_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,10 @@ def set_seed(args):
     torch.manual_seed(args.seed)
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
+
+
+def to_list(tensor):
+    return tensor.detach().cpu().tolist()
 
 
 def train(args, train_dataset, model, tokenizer, prune_schedule=None):
@@ -143,13 +149,15 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
             batch = tuple(t.to(args.device) for t in batch)
             inputs = {'input_ids': batch[0],
                       'attention_mask': batch[1],
+                      'token_type_ids': batch[2],
                       'start_positions': batch[3],
                       'end_positions': batch[4]}
-            if args.model_type != 'distilbert':
-                inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
+            if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
+                del inputs["token_type_ids"]
                 # XLM, DistilBERT and RoBERTa don't use segment_ids
             outputs = model(**inputs)
-            loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+            # model outputs are always tuple in transformers (see doc)
+            loss = outputs[0]
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
@@ -174,9 +182,10 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
                 model.zero_grad()
                 global_step += 1
 
+                # Log metrics
                 if args.local_rank in [-1, 0] and args.logging_steps > 0 and global_step % args.logging_steps == 0:
-                    # Log metrics
-                    if args.local_rank == -1 and args.evaluate_during_training:  # Only evaluate when single GPU otherwise metrics may not average well
+                    # Only evaluate when single GPU otherwise metrics may not average well
+                    if args.local_rank == -1 and args.evaluate_during_training:
                         results = evaluate(args, model, tokenizer)
                         for key, value in results.items():
                             tb_writer.add_scalar('eval_{}'.format(key), value, global_step)
@@ -184,13 +193,13 @@ def train(args, train_dataset, model, tokenizer, prune_schedule=None):
                     tb_writer.add_scalar('loss', (tr_loss - logging_loss) / args.logging_steps, global_step)
                     logging_loss = tr_loss
 
+                # Save model checkpoint
                 if args.local_rank in [-1, 0] and args.save_steps > 0 and global_step % args.save_steps == 0:
-                    # Save model checkpoint
                     output_dir = os.path.join(args.output_dir, 'checkpoint-{}'.format(global_step))
                     if not os.path.exists(output_dir):
                         os.makedirs(output_dir)
-                    model_to_save = model.module if hasattr(model,
-                                                            'module') else model  # Take care of distributed/parallel training
+                    # Take care of distributed/parallel training
+                    model_to_save = model.module if hasattr(model, 'module') else model
                     model_to_save.save_pretrained(output_dir)
                     torch.save(args, os.path.join(output_dir, 'training_args.bin'))
                     logger.info("Saving model checkpoint to %s", output_dir)
@@ -230,8 +239,7 @@ def evaluate(args, model, tokenizer, prefix=""):
     results = {}
 
     for eval_task, eval_output_dir in zip(eval_task_names, eval_outputs_dirs):
-        eval_dataset = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
-
+        features, eval_dataset, examples = load_and_cache_examples(args, eval_task, tokenizer, evaluate=True)
         if not os.path.exists(eval_output_dir) and args.local_rank in [-1, 0]:
             os.makedirs(eval_output_dir)
 
@@ -240,16 +248,17 @@ def evaluate(args, model, tokenizer, prefix=""):
         eval_sampler = SequentialSampler(eval_dataset) if args.local_rank == -1 else DistributedSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
-        # multi-gpu eval
-        if args.n_gpu > 1:
+        # multi-gpu evaluate
+        if args.n_gpu > 1 and not isinstance(model, torch.nn.DataParallel):
             model = torch.nn.DataParallel(model)
 
         # Eval!
         logger.info("***** Running evaluation {} *****".format(prefix))
         logger.info("  Num examples = %d", len(eval_dataset))
         logger.info("  Batch size = %d", args.eval_batch_size)
-        preds = None
-        out_average_pos = None
+
+        all_results = []
+        start_time = timeit.default_timer()
         for batch in tqdm(eval_dataloader, desc="Evaluating"):
             model.eval()
             batch = tuple(t.to(args.device) for t in batch)
@@ -257,34 +266,59 @@ def evaluate(args, model, tokenizer, prefix=""):
             with torch.no_grad():
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
-                          'start_positions': batch[3],
-                          'end_positions': batch[4]}
-                if args.model_type != 'distilbert':
-                    inputs['token_type_ids'] = batch[2] if args.model_type in ['bert', 'xlnet', 'albert'] else None
+                          'token_type_ids': batch[2],
+                          }
+                if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
+                    del inputs["token_type_ids"]
                     # XLM, DistilBERT and RoBERTa don't use segment_ids
+
+                feature_indices = batch[3]
+
                 outputs = model(**inputs)
-                start_logits, end_logits = outputs[1:3]
 
-            if preds is None:
-                preds = logits.detach().cpu().numpy()
-                out_average_pos = ((inputs['start_positions'] + inputs['end_positions']) / 2).detach().cpu().numpy()
-            else:
-                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+            for i, feature_index in enumerate(feature_indices):
+                eval_feature = features[feature_index.item()]
+                unique_id = int(eval_feature.unique_id)
 
-                out_average_pos = np.append(out_average_pos,
-                                            ((inputs['start_positions'] +
-                                              inputs['end_positions']) / 2).detach().cpu().numpy(), axis=0)
+                output = [to_list(output)[i] for output in outputs]
 
-        preds = np.argmax(preds, axis=1)
-        result = compute_metrics(eval_task, preds, out_average_pos)
-        results.update(result)
+                # len(output) < 5 except XLNet, XLM
+                start_logit, end_logit = output
+                result = SquadResult(unique_id, start_logit, end_logit)
+                all_results.append(result)
 
-        output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
-        with open(output_eval_file, "w") as writer:
-            logger.info("***** Eval results {} *****".format(prefix))
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(result[key]))
-                writer.write("%s = %s\n" % (key, str(result[key])))
+        evalTime = timeit.default_timer() - start_time
+        logger.info("  Evaluation done in total %f secs (%f sec per example)", evalTime, evalTime / len(eval_dataset))
+
+        # Compute predictions
+        output_prediction_file = os.path.join(args.output_dir, "predictions_{}.json".format(prefix))
+        output_nbest_file = os.path.join(args.output_dir, "nbest_predictions_{}.json".format(prefix))
+        output_null_log_odds_file = os.path.join(args.output_dir, "null_odds_{}.json".format(prefix))
+
+        predictions = compute_predictions_logits(
+            examples,
+            features,
+            all_results,
+            n_best_size=20,
+            max_answer_length=30,
+            do_lower_case=args.do_lower_case,
+            output_prediction_file=output_prediction_file,
+            output_nbest_file=output_nbest_file,
+            output_null_log_odds_file=output_null_log_odds_file,
+            verbose_logging=True,
+            version_2_with_negative=True,
+            null_score_diff_threshold=0.0,
+            tokenizer=tokenizer,
+        )
+
+    # Compute the F1 and exact scores.
+    results = squad_evaluate(examples, predictions)
+    output_eval_file = os.path.join(eval_output_dir, prefix, "eval_results.txt")
+    with open(output_eval_file, "w") as writer:
+        logger.info("***** Eval results {} *****".format(prefix))
+        for key in sorted(results.keys()):
+            logger.info("  %s = %s", key, str(results[key]))
+            writer.write("%s = %s\n" % (key, str(results[key])))
 
     return results
 
@@ -303,30 +337,35 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         str(task)))
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
-        features = torch.load(cached_features_file)
+        if is_torch_available():
+            features, dataset, examples = torch.load(cached_features_file)
+        elif is_tf_available():
+            features = torch.load(cached_features_file)
+        else:
+            raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
         examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
             args.data_dir)
-        features = convert_examples_to_features(examples,
-                                                tokenizer,
-                                                max_seq_length=args.max_seq_length,
-                                                doc_stride=args.doc_stride,
-                                                max_query_length=args.max_query_length,
-                                                is_training=not evaluate,
-                                                return_dataset="pt",
-                                                threads=args.threads
-                                                )
+        features, dataset = convert_examples_to_features(examples,
+                                                         tokenizer,
+                                                         max_seq_length=args.max_seq_length,
+                                                         doc_stride=args.doc_stride,
+                                                         max_query_length=args.max_query_length,
+                                                         is_training=not evaluate,
+                                                         return_dataset="pt",
+                                                         threads=args.threads
+                                                         )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(features, cached_features_file)
+            torch.save((features, dataset, examples), cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset,
         # and the others will use the cache
 
     if is_torch_available():
-        return features[1]
+        return features, dataset, examples
     elif is_tf_available():
         # Convert to Tensors and build dataset
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
@@ -345,7 +384,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
 def main():
     parser = argparse.ArgumentParser()
 
-    ## Required parameters
+    # Required parameters
     parser.add_argument("--data_dir", default=None, type=str, required=True,
                         help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
     parser.add_argument("--model_type", default=None, type=str, required=True,
@@ -358,7 +397,7 @@ def main():
     parser.add_argument("--output_dir", default=None, type=str, required=True,
                         help="The output directory where the model predictions and checkpoints will be written.")
 
-    ## Other parameters
+    # Other parameters
     parser.add_argument("--config_name", default="", type=str,
                         help="Pretrained config name or path if not the same as model_name")
     parser.add_argument("--tokenizer_name", default="", type=str,
@@ -518,7 +557,12 @@ def main():
 
     # Training
     if args.do_train:
-        train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        if is_torch_available():
+            train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)[1]
+        elif is_tf_available():
+            train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        else:
+            raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
         if args.fxp_and_prune:
             global_step, tr_loss = train(args, train_dataset, model, tokenizer, prune_schedule=prune_schedule)
         else:

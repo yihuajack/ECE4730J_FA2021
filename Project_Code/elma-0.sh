@@ -10,7 +10,6 @@ python run_squad.py \
   --task_name SQuAD \
   --do_train \
   --do_eval \
-  --do_lower_case \
   --data_dir ../SQuAD2.0 \
   --max_seq_length 128 \
   --per_gpu_eval_batch_size 1 \
@@ -23,12 +22,11 @@ python run_squad.py \
   --overwrite_cache \
   --overwrite_output_dir
 
-python ../examples/masked_run_highway_squad.py --model_type masked_albert \
+python masked_run_highway_squad.py --model_type masked_albert \
   --model_name_or_path albert-base-v2 \
   --task_name SQuAD \
   --do_train \
   --do_eval \
-  --do_lower_case \
   --data_dir ../SQuAD2.0 \
   --max_seq_length 128 \
   --per_gpu_eval_batch_size=1 \
@@ -55,7 +53,7 @@ python ../examples/masked_run_highway_squad.py --model_type masked_albert \
   --teacher_type albert_teacher --teacher_name_or_path ./saved_models/albert-base/SQuAD/teacher \
   --alpha_ce 0.1 --alpha_distil 0.9
 
-python ../examples/bertarize.py \
+python bertarize.py \
     --pruning_method magnitude \
     --threshold 0.5 \
     --model_name_or_path ./saved_models/masked_albert/SQuAD/two_stage_pruned_0.5
@@ -64,11 +62,10 @@ ENTROPIES="0.23 0.28 0.46"
 
 for ENTROPY in $ENTROPIES; do
     echo $ENTROPY
-    python ../examples/masked_run_highway_squad.py --model_type albert \
+    python masked_run_highway_squad.py --model_type albert \
       --model_name_or_path ./saved_models/masked_albert/SQuAD/bertarized_two_stage_pruned_0.6 \
       --task_name SQuAD \
       --do_eval \
-      --do_lower_case \
       --data_dir ../SQuAD2.0 \
       --max_seq_length 128 \
       --per_gpu_eval_batch_size=1 \
@@ -82,11 +79,10 @@ done
 
 for ENTROPY in $ENTROPIES; do
     echo $ENTROPY
-    python ../examples/masked_run_highway_squad.py --model_type albert \
+    python masked_run_highway_squad.py --model_type albert \
       --model_name_or_path ./saved_models/masked_albert/SQuAD/bertarized_two_stage_pruned_0.6 \
       --task_name SQuAD \
       --do_eval \
-      --do_lower_case \
       --data_dir ../SQuAD2.0 \
       --max_seq_length 128 \
       --per_gpu_eval_batch_size=1 \
