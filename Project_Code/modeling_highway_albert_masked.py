@@ -2,10 +2,8 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from modeling_albert import AlbertPreTrainedModel, AlbertLayerNorm, AlbertLayerGroup
-from modeling_bert import BertEmbeddings
-
-import numpy as np
+from modeling_albert_masked import MaskedAlbertPreTrainedModel, AlbertLayerNorm, AlbertLayerGroup
+from modeling_bert_masked import BertEmbeddings
 
 
 def entropy(x):
@@ -36,6 +34,30 @@ class AlbertEmbeddings(BertEmbeddings):
         self.LayerNorm = AlbertLayerNorm(config.embedding_size, eps=config.layer_norm_eps)
         # self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
+    # def forward(self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None):
+    #     if input_ids is not None:
+    #         input_shape = input_ids.size()
+    #     else:
+    #         input_shape = inputs_embeds.size()[:-1]
+    #
+    #     seq_length = input_shape[1]
+    #     device = input_ids.device if input_ids is not None else inputs_embeds.device
+    #     if position_ids is None:
+    #         position_ids = torch.arange(seq_length, dtype=torch.long, device=device)
+    #         position_ids = position_ids.unsqueeze(0).expand(input_shape)
+    #     if token_type_ids is None:
+    #         token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
+    #
+    #     if inputs_embeds is None:
+    #         inputs_embeds = self.word_embeddings(input_ids)
+    #     position_embeddings = self.position_embeddings(position_ids)
+    #     token_type_embeddings = self.token_type_embeddings(token_type_ids)
+    #
+    #     embeddings = inputs_embeds + position_embeddings + token_type_embeddings
+    #     embeddings = self.LayerNorm(embeddings)
+    #     #embeddings = self.dropout(embeddings)
+    #     return embeddings
+
 
 class AlbertTransformer(nn.Module):
     def __init__(self, config, params):
@@ -45,25 +67,22 @@ class AlbertTransformer(nn.Module):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
         self.embedding_hidden_mapping_in = nn.Linear(config.embedding_size, config.hidden_size)
-        self.albert_layer_groups = nn.ModuleList(
-            [AlbertLayerGroup(config, params) for _ in range(config.num_hidden_groups)])
-
-        self.entropy_predictor = config.entropy_predictor
-        if config.entropy_predictor:
-            self.lookup_table = np.loadtxt(config.lookup_table_file, delimiter=",")
-            self.predict_layer = config.predict_layer
-            self.predict_average_layers = config.predict_average_layers
-            self.extra_layer = config.extra_layer
-            self.get_predict_acc = config.get_predict_acc
-            self.no_ee_before = config.no_ee_before
+        self.albert_layer_groups = nn.ModuleList([AlbertLayerGroup(config, params)
+                                                  for _ in range(config.num_hidden_groups)])
 
         # self.layer = nn.ModuleList([AlbertLayer(config) for _ in range(config.num_hidden_layers)])
-        ### try grouping for efficiency
+        # try grouping for efficiency
+        # self.highway = nn.ModuleList([MaskedAlbertHighway(config) for _ in range(config.num_hidden_groups)])
+        # changed from self.highway = nn.ModuleList([MaskedAlbertHighway(config)
+        #                                         for _ in range(config.num_hidden_layers)])
+
+        # changed from self.early_exit_entropy = [-1 for _ in range(config.num_hidden_layers)]
+        # self.early_exit_entropy = [-1 for _ in range(config.num_hidden_groups)]
         if config.one_class:
-            self.highway = nn.ModuleList([AlbertHighway(config) for _ in range(config.num_hidden_groups)])
+            self.highway = nn.ModuleList([MaskedAlbertHighway(config) for _ in range(config.num_hidden_groups)])
             self.early_exit_entropy = [-1 for _ in range(config.num_hidden_groups)]
         else:
-            self.highway = nn.ModuleList([AlbertHighway(config) for _ in range(config.num_hidden_layers)])
+            self.highway = nn.ModuleList([MaskedAlbertHighway(config) for _ in range(config.num_hidden_layers)])
             self.early_exit_entropy = [-1 for _ in range(config.num_hidden_layers)]
 
     def set_early_exit_entropy(self, x):
@@ -80,12 +99,12 @@ class AlbertTransformer(nn.Module):
             for name, param in highway.pooler.state_dict().items():
                 param.copy_(loaded_model[name])
 
-    def forward(self, hidden_states, attention_mask=None, head_mask=None):
+    def forward(self, hidden_states, attention_mask=None, head_mask=None, threshold=None):
         hidden_states = self.embedding_hidden_mapping_in(hidden_states)
         all_attentions = ()
         all_highway_exits = ()
         # if self.output_hidden_states:
-        #    all_hidden_states = (hidden_states,)
+        #     all_hidden_states = (hidden_states,)
 
         # for i,layer_module in enumerate(self.albert_layer_groups):
         # for i, layer_module in enumerate(self.layer):
@@ -99,6 +118,7 @@ class AlbertTransformer(nn.Module):
                 hidden_states,
                 attention_mask,
                 head_mask[group_idx * layers_per_group: (group_idx + 1) * layers_per_group],
+                threshold=threshold
             )
             hidden_states = layer_group_output[0]
 
@@ -108,7 +128,7 @@ class AlbertTransformer(nn.Module):
 
             # check
             if self.output_hidden_states:
-               all_hidden_states = all_hidden_states + (hidden_states,)
+                all_hidden_states = all_hidden_states + (hidden_states,)
 
             # added this section
             current_outputs = (hidden_states,)
@@ -117,6 +137,9 @@ class AlbertTransformer(nn.Module):
             if self.output_attentions:
                 current_outputs = current_outputs + (all_attentions,)
 
+            # problem:: returns 8*128=1024 instead of 8 cells
+            # highway_exit = self.highway[group_idx](current_outputs) #changed from self.highway[i](current_outputs)
+            # highway_exit = self.highway[group_idx](current_outputs)
             if self.config.one_class:
                 highway_exit = self.highway[group_idx](current_outputs)
             else:
@@ -134,106 +157,16 @@ class AlbertTransformer(nn.Module):
                 else:
                     ent_ = self.early_exit_entropy[i]
 
-                if not self.entropy_predictor:
-                    if highway_entropy < ent_:
-                        new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                        raise HighwayException(new_output, i + 1)
-
-                elif (self.get_predict_acc):
-                    if i == 0:
-                        count = 0
-                        check_ee = 0
-                    if self.predict_layer - 1 == i:
-                        if self.predict_average_layers:
-                            if i == 0:
-                                hw_ent_temp = highway_entropy.cpu().numpy()[0]
-                            else:
-                                hw_ent_temp = hw_ent_temp + highway_entropy.cpu().numpy()[0]
-                            hw_ent = hw_ent_temp / float((i + 1))
-                        else:
-                            hw_ent = highway_entropy.cpu().numpy()[0]
-                        # hash into lookup table w/ highway_entropy
-                        idx = (np.abs(self.lookup_table[:, 0] - hw_ent)).argmin()
-                        entropy_layers = np.transpose(self.lookup_table[idx, 1:])
-                        below_thresh = entropy_layers < ent_
-                        k = np.argmax(below_thresh)  # k is number of remaining layers
-                        if (np.sum(below_thresh) == 0):  # never hit threshold
-                            k = entropy_layers.shape[0] - 1
-                        k = k + self.predict_layer
-                        count = count + 1
-                        # print(idx)
-                        # print(self.lookup_table[idx,:])
-                        # print(k)
-
-                    if ((highway_entropy < ent_) or (i == self.config.num_hidden_layers - 1)) and not check_ee:
-                        j = i  # j is hw exit layer
-                        count = count + 1
-                        check_ee = 1
-
-                    if count == 2:
-                        new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                        # return abs value of diff between j and k
-                        if j > k:
-                            raise HighwayException(new_output, (j - k) + 1)
-                        else:
-                            raise HighwayException(new_output, (k - j) + 1)
-
-                else:
-                    if (i < self.predict_layer - 1):  # before predict layer
-                        # exit here????
-                        if highway_entropy < ent_:
-                            new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                            raise HighwayException(new_output, i + 1)
-
-                        if self.predict_average_layers:  # predict layer
-                            if i == 0:
-                                hw_ent_temp = highway_entropy.cpu().numpy()[0]
-                            else:
-                                hw_ent_temp = hw_ent_temp + highway_entropy.cpu().numpy()[0]
-
-                    if (i == self.predict_layer - 1):  # predict layer
-
-                        if highway_entropy < ent_:
-                            new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                            raise HighwayException(new_output, i + 1)
-
-                        if self.predict_average_layers:
-                            if i == 0:
-                                hw_ent_temp = highway_entropy.cpu().numpy()[0]
-                            else:
-                                hw_ent_temp = hw_ent_temp + highway_entropy.cpu().numpy()[0]
-                            hw_ent = hw_ent_temp / float((i + 1))
-                        else:
-                            hw_ent = highway_entropy.cpu().numpy()[0]
-
-                        # hash into lookup table w/ highway_entropy
-                        idx = (np.abs(self.lookup_table[:, 0] - hw_ent)).argmin()
-                        entropy_layers = np.transpose(self.lookup_table[idx, 1:])
-                        below_thresh = entropy_layers < ent_
-                        k = np.argmax(below_thresh)  # k is number of remaining layers
-                        if (np.sum(below_thresh) == 0):  # never hit threshold
-                            k = entropy_layers.shape[0] - 1
-
-                    # other layers (count down and then trigger highway exit if layer < self.num_hidden_layers)
-                    elif ((i >= self.predict_layer) and (i < self.config.num_hidden_layers - 2)):
-
-                        if (self.extra_layer):
-                            if k == 0:
-                                if highway_entropy < ent_:
-                                    new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                                    raise HighwayException(new_output, i + 1)
-                            elif k == -1:
-                                new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                                raise HighwayException(new_output, i + 1)
-                        else:
-                            if (not self.no_ee_before):
-                                if highway_entropy < ent_:
-                                    new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                                    raise HighwayException(new_output, i + 1)
-                            if k == 0:  # exit after counting down layers (CHECK CORRECT # OF LAYERS)
-                                new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                                raise HighwayException(new_output, i + 1)
-                        k = k - 1
+                if highway_entropy < ent_:
+                    # if highway_entropy < self.early_exit_entropy[group_idx]:
+                    # weight_func = lambda x: torch.exp(-3 * x) - 0.5**3
+                    # weight_func = lambda x: 2 - torch.exp(x)
+                    # weighted_logits = \
+                    #     sum([weight_func(x[2]) * x[0] for x in all_highway_exits]) /\
+                    #     sum([weight_func(x[2]) for x in all_highway_exits])
+                    # new_output = (weighted_logits,) + current_outputs[1:] + (all_highway_exits,)
+                    new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
+                    raise HighwayException(new_output, i + 1)
             else:
                 all_highway_exits = all_highway_exits + (highway_exit,)
 
@@ -252,7 +185,7 @@ class AlbertTransformer(nn.Module):
         return outputs  # last-layer hidden state, (all hidden states), (all attentions)
 
 
-class AlbertModel(AlbertPreTrainedModel):
+class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
 
     def __init__(self, config, params):
         super().__init__(config, params)
@@ -302,6 +235,7 @@ class AlbertModel(AlbertPreTrainedModel):
             position_ids=None,
             head_mask=None,
             inputs_embeds=None,
+            threshold=None
     ):
         r"""
     Return:
@@ -380,7 +314,8 @@ class AlbertModel(AlbertPreTrainedModel):
         )
 
         # CHECK THIS
-        encoder_outputs = self.encoder(embedding_output, extended_attention_mask, head_mask=head_mask)
+        encoder_outputs = self.encoder(embedding_output, extended_attention_mask, head_mask=head_mask,
+                                       threshold=threshold)
 
         sequence_output = encoder_outputs[0]
 
@@ -397,7 +332,7 @@ class HighwayException(Exception):
         self.exit_layer = exit_layer  # start from 1!
 
 
-class AlbertHighway(nn.Module):
+class MaskedAlbertHighway(nn.Module):
     r"""A module to provide a shortcut
     from
     the output of one non-final BertLayer in BertEncoder
@@ -407,7 +342,7 @@ class AlbertHighway(nn.Module):
 
     def __init__(self, config):
         # super().__init__(config) ###
-        super(AlbertHighway, self).__init__()
+        super(MaskedAlbertHighway, self).__init__()
         self.pooler = nn.Linear(config.hidden_size, config.hidden_size)
         self.pooler_activation = nn.Tanh()
         ##
@@ -438,13 +373,13 @@ class AlbertHighway(nn.Module):
         return logits, pooled_output
 
 
-class AlbertForSequenceClassification(AlbertPreTrainedModel):
+class MaskedAlbertForSequenceClassification(MaskedAlbertPreTrainedModel):
     def __init__(self, config, params):
         super().__init__(config, params)
         self.num_labels = config.num_labels
         self.num_layers = config.num_hidden_layers
 
-        self.albert = AlbertModel(config, params)
+        self.albert = MaskedAlbertModel(config, params)
         self.dropout = nn.Dropout(config.classifier_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
 
@@ -461,7 +396,8 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
             inputs_embeds=None,
             labels=None,
             output_layer=-1,
-            train_highway=False
+            train_highway=False,
+            threshold=None
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -511,6 +447,7 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
                 position_ids=position_ids,
                 head_mask=head_mask,
                 inputs_embeds=inputs_embeds,
+                threshold=threshold
             )
 
             pooled_output = outputs[1]
@@ -567,14 +504,14 @@ class AlbertForSequenceClassification(AlbertPreTrainedModel):
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
 
-class AlbertForQuestionAnswering(AlbertPreTrainedModel):
+class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
     def __init__(self, config, params):
         super().__init__(config)
         self.num_labels = config.num_labels
         self.num_layers = config.num_hidden_layers
 
         # self.albert = AlbertModel(config)
-        self.albert = AlbertModel(config, params)
+        self.albert = MaskedAlbertModel(config, params)
         self.qa_outputs = nn.Linear(config.hidden_size, config.num_labels)
 
         self.init_weights()
@@ -591,7 +528,8 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
             start_positions=None,
             end_positions=None,
             output_layer=-1,
-            train_highway=False
+            train_highway=False,
+            threshold=None
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -638,7 +576,6 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
         start_scores, end_scores = model(**input_dict)
 
         """
-
         exit_layer = self.num_layers
 
         try:
@@ -648,7 +585,8 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
                 token_type_ids=token_type_ids,
                 position_ids=position_ids,
                 head_mask=head_mask,
-                inputs_embeds=inputs_embeds
+                inputs_embeds=inputs_embeds,
+                threshold=threshold
             )
 
             sequence_output = outputs[0]
@@ -721,6 +659,6 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \
-                          outputs[2:]  ## use the highway of the last layer
+                          outputs[2:]  # use the highway of the last layer
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)

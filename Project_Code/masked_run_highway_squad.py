@@ -47,9 +47,10 @@ from file_utils import WEIGHTS_NAME, is_torch_available, is_tf_available
 from configuration_albert import AlbertConfig
 from tokenization_albert import AlbertTokenizer
 
+from modeling_albert import AlbertForQuestionAnswering
+from configuration_albert_masked import MaskedAlbertConfig
 from modeling_highway_albert import AlbertForQuestionAnswering as AlbertForQuestionAnsweringHW
-
-from modeling_albert import AlbertForQuestionAnswering as AlbertForQuestionAnswering
+from modeling_highway_albert_masked import MaskedAlbertForQuestionAnswering as MaskedAlbertForQuestionAnsweringHW
 
 from optimization import AdamW, get_linear_schedule_with_warmup
 
@@ -63,6 +64,7 @@ ALL_MODELS = sum((tuple(conf.pretrained_config_archive_map.keys()) for conf in (
 MODEL_CLASSES = {
     'albert': (AlbertConfig, AlbertForQuestionAnsweringHW, AlbertTokenizer),
     'albert_teacher': (AlbertConfig, AlbertForQuestionAnswering, AlbertTokenizer),
+    'masked_albert': (MaskedAlbertConfig, MaskedAlbertForQuestionAnsweringHW, AlbertTokenizer),
 }
 
 processors = {
@@ -244,7 +246,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
     tr_loss, logging_loss = 0.0, 0.0
     model.zero_grad()
     train_iterator = trange(int(args.num_train_epochs), desc="Epoch", disable=args.local_rank not in [-1, 0])
-    set_seed(args)  # Added here for reproductibility (even between python 2 and 3)
+    set_seed(args)  # Added here for reproducibility (even between python 2 and 3)
 
     epoch = 1
 

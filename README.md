@@ -1,5 +1,3 @@
-# VE473_FA2021
-
 # ECE4730J_FA2021
 
 ### Honor Code Disclaimer
@@ -17,3 +15,4 @@ According to the student handbook (2020 version),
 | Lab 1 | 5     | 5      | 5    |
 | Lab 2 | 5     | 5      | 5    |
 | Lab 3 | 5     | 5      | 5    |
+| Lab 4 | 5     | 5      | 5    |
