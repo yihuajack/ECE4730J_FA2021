@@ -79,10 +79,12 @@ class AlbertTransformer(nn.Module):
         # changed from self.early_exit_entropy = [-1 for _ in range(config.num_hidden_layers)]
         # self.early_exit_entropy = [-1 for _ in range(config.num_hidden_groups)]
         if config.one_class:
-            self.highway = nn.ModuleList([MaskedAlbertHighway(config) for _ in range(config.num_hidden_groups)])
+            self.highway = nn.ModuleList([MaskedAlbertHighwayForQuestionAnswering(config)
+                                          for _ in range(config.num_hidden_groups)])
             self.early_exit_entropy = [-1 for _ in range(config.num_hidden_groups)]
         else:
-            self.highway = nn.ModuleList([MaskedAlbertHighway(config) for _ in range(config.num_hidden_layers)])
+            self.highway = nn.ModuleList([MaskedAlbertHighwayForQuestionAnswering(config)
+                                          for _ in range(config.num_hidden_layers)])
             self.early_exit_entropy = [-1 for _ in range(config.num_hidden_layers)]
 
     def set_early_exit_entropy(self, x):
@@ -138,8 +140,8 @@ class AlbertTransformer(nn.Module):
                 current_outputs = current_outputs + (all_attentions,)
 
             # problem:: returns 8*128=1024 instead of 8 cells
-            # highway_exit = self.highway[group_idx](current_outputs) #changed from self.highway[i](current_outputs)
             # highway_exit = self.highway[group_idx](current_outputs)
+            # changed from self.highway[i](current_outputs)
             if self.config.one_class:
                 highway_exit = self.highway[group_idx](current_outputs)
             else:
@@ -332,7 +334,7 @@ class HighwayException(Exception):
         self.exit_layer = exit_layer  # start from 1!
 
 
-class MaskedAlbertHighway(nn.Module):
+class MaskedAlbertHighwayForSequenceClassification(nn.Module):
     r"""A module to provide a shortcut
     from
     the output of one non-final BertLayer in BertEncoder
@@ -342,7 +344,7 @@ class MaskedAlbertHighway(nn.Module):
 
     def __init__(self, config):
         # super().__init__(config) ###
-        super(MaskedAlbertHighway, self).__init__()
+        super(MaskedAlbertHighwayForSequenceClassification, self).__init__()
         self.pooler = nn.Linear(config.hidden_size, config.hidden_size)
         self.pooler_activation = nn.Tanh()
         ##
@@ -362,7 +364,7 @@ class MaskedAlbertHighway(nn.Module):
 
         # BertModel
         bmodel_output = (pooler_input, pooler_output) + encoder_outputs[1:]
-        # "return" bodel_output
+        # "return" bmodel_output
 
         # Dropout and classification
         pooled_output = bmodel_output[1]
@@ -371,6 +373,27 @@ class MaskedAlbertHighway(nn.Module):
         logits = self.classifier(pooled_output)
 
         return logits, pooled_output
+
+
+class MaskedAlbertHighwayForQuestionAnswering(nn.Module):
+    r"""A module to provide a shortcut
+    from
+    the output of one non-final BertLayer in BertEncoder
+    to
+    cross-entropy computation in BertForQuestionAnswering
+    """
+
+    def __init__(self, config):
+        # super().__init__(config) ###
+        super(MaskedAlbertHighwayForQuestionAnswering, self).__init__()
+        self.qa_output = nn.Linear(config.hidden_size, config.num_labels)
+
+    def forward(self, encoder_outputs):
+
+        sequence_output = encoder_outputs[0]
+        logits = self.qa_output(sequence_output)
+
+        return logits, sequence_output
 
 
 class MaskedAlbertForSequenceClassification(MaskedAlbertPreTrainedModel):

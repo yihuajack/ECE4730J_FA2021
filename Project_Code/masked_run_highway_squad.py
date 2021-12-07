@@ -594,7 +594,12 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
         str(task)))
     if os.path.exists(cached_features_file) and not args.overwrite_cache:
         logger.info("Loading features from cached file %s", cached_features_file)
-        features = torch.load(cached_features_file)
+        if is_torch_available():
+            features, dataset, examples = torch.load(cached_features_file)
+        elif is_tf_available():
+            features = torch.load(cached_features_file)
+        else:
+            raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
         examples = processor.get_dev_examples(args.data_dir) if evaluate else processor.get_train_examples(
@@ -610,7 +615,12 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
                                                          )
         if args.local_rank in [-1, 0]:
             logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(features, cached_features_file)
+            if is_torch_available():
+                torch.save((features, dataset, examples), cached_features_file)
+            elif is_tf_available():
+                torch.save(features, cached_features_file)
+            else:
+                raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
 
     if args.local_rank == 0 and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache

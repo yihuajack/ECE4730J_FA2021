@@ -877,10 +877,7 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
         sequence_output = outputs[0]
 
         logits = self.qa_outputs(sequence_output)
-        logits_temp = logits.split(1, dim=-1)
-        # start_logits, end_logits = logits.split(1, dim=-1)
-        start_logits = logits_temp[0]
-        end_logits = logits_temp[1]
+        start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1)
         end_logits = end_logits.squeeze(-1)
 
