@@ -358,8 +358,7 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
             # if (step + 1) % args.gradient_accumulation_steps == 0:
             if (step + 1) % args.gradient_accumulation_steps == 0 or (
                     # last step in epoch but step is always smaller than gradient_accumulation_steps
-                    len(epoch_iterator) <= args.gradient_accumulation_steps
-                    and (step + 1) == len(epoch_iterator)
+                    args.gradient_accumulation_steps >= len(epoch_iterator) == (step + 1)
             ):
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
@@ -583,7 +582,8 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
     if args.local_rank not in [-1, 0] and not evaluate:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
 
     processor = processors[task]()
     # Load data features from cache or dataset file
@@ -623,7 +623,8 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
                 raise RuntimeError("PyTorch or TensorFlow must be installed to return a dataset.")
 
     if args.local_rank == 0 and not evaluate:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
+        torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset,
+        # and the others will use the cache
 
     if is_torch_available():
         return features, dataset, examples
@@ -743,8 +744,10 @@ def main():
                         help="Log every X updates steps.")
     parser.add_argument('--save_steps', type=int, default=50,
                         help="Save checkpoint every X updates steps.")
-    parser.add_argument("--eval_all_checkpoints", action='store_true',
-                        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number")
+    parser.add_argument(
+        "--eval_all_checkpoints", action='store_true',
+        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number"
+    )
     parser.add_argument("--no_cuda", action='store_true',
                         help="Avoid using CUDA when available")
     parser.add_argument('--overwrite_output_dir', action='store_true',
@@ -807,7 +810,8 @@ def main():
         "--pruning_method",
         default="topK",
         type=str,
-        help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, sigmoied_threshold = Soft movement pruning).",
+        help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, "
+             "sigmoied_threshold = Soft movement pruning).",
     )
     parser.add_argument(
         "--mask_init",
@@ -840,7 +844,8 @@ def main():
         "--teacher_type",
         default=None,
         type=str,
-        help="Teacher type. Teacher tokenizer and student (model) tokenizer must output the same tokenization. Only for distillation.",
+        help="Teacher type. Teacher tokenizer and student (model) tokenizer must output the same tokenization. Only "
+             "for distillation.",
     )
     parser.add_argument(
         "--teacher_name_or_path",
@@ -861,8 +866,9 @@ def main():
     parser.add_argument('--doc_stride', type=int, default=128,
                         help="When splitting up a long document into chunks, how much stride to take between chunks.")
     parser.add_argument('--max_query_length', type=int, default=64,
-                        help="The maximum number of tokens for the question. Questions longer than this will be truncated to this length.")
-    parser.add_argument('--threads', type=int, default=cpu_count(), help="multiple processing threadsa-smi")
+                        help="The maximum number of tokens for the question. Questions longer than this will be "
+                             "truncated to this length.")
+    parser.add_argument('--threads', type=int, default=cpu_count(), help="multiple processing threads-smi")
 
     args = parser.parse_args()
 
@@ -927,7 +933,8 @@ def main():
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
@@ -980,12 +987,13 @@ def main():
     else:
         teacher = None
 
+    # QA tasks like SQuAD should not initialize highway pooler.
     if args.model_type == "bert" or args.model_type == "masked_bert":
         model.bert.encoder.set_early_exit_entropy(args.early_exit_entropy)
-        model.bert.init_highway_pooler()
+        # model.bert.init_highway_pooler()
     elif args.model_type == "albert" or args.model_type == "masked_albert":
         model.albert.encoder.set_early_exit_entropy(args.early_exit_entropy)
-        model.albert.init_highway_pooler()
+        # model.albert.init_highway_pooler()
 
     if args.fxp_and_prune:
         n_train_epochs = int(args.num_train_epochs)
@@ -1004,7 +1012,8 @@ def main():
         print("Prune schedule is: ", prune_schedule)
 
     if args.local_rank == 0:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     model.to(args.device)
 

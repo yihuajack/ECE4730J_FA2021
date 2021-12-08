@@ -442,7 +442,8 @@ def main():
     parser.add_argument('--save_steps', type=int, default=50,
                         help="Save checkpoint every X updates steps.")
     parser.add_argument("--eval_all_checkpoints", action='store_true',
-                        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending with step number")
+                        help="Evaluate all checkpoints starting with the same prefix as model_name ending and ending "
+                             "with step number")
     parser.add_argument("--no_cuda", action='store_true',
                         help="Avoid using CUDA when available")
     parser.add_argument('--overwrite_output_dir', action='store_true',
@@ -469,8 +470,9 @@ def main():
     parser.add_argument('--doc_stride', type=int, default=128,
                         help="When splitting up a long document into chunks, how much stride to take between chunks.")
     parser.add_argument('--max_query_length', type=int, default=64,
-                        help="The maximum number of tokens for the question. Questions longer than this will be truncated to this length.")
-    parser.add_argument('--threads', type=int, default=cpu_count(), help="multiple processing threadsa-smi")
+                        help="The maximum number of tokens for the question. Questions longer than this will be "
+                             "truncated to this length.")
+    parser.add_argument('--threads', type=int, default=cpu_count(), help="multiple processing threads-smi")
 
     args = parser.parse_args()
 
@@ -516,7 +518,8 @@ def main():
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:
-        torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+        torch.distributed.barrier()
+        # Make sure only the first process in distributed training will download model & vocab
 
     args.model_type = args.model_type.lower()
     config_class, model_class, tokenizer_class = MODEL_CLASSES[args.model_type]
