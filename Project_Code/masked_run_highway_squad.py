@@ -310,25 +310,31 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
             # loss, logits_stu = outputs
             # model outputs are always tuple in transformers (see doc)
             loss = outputs[0]
-            logits_stu = outputs[1]
+            logits_stu_start = outputs[1]
+            logits_stu_end = outputs[2]
             # Distillation loss
             if teacher is not None:
                 if "token_type_ids" not in inputs:
                     inputs["token_type_ids"] = None if args.teacher_type == "xlm" else batch[2]
                 with torch.no_grad():
-                    (logits_tea,) = teacher(
+                    (logits_tea_start, logits_tea_end) = teacher(
                         input_ids=inputs["input_ids"],
                         token_type_ids=inputs["token_type_ids"],
                         attention_mask=inputs["attention_mask"],
                     )
 
-                loss_logits = F.kl_div(
-                    input=F.log_softmax(logits_stu / args.temperature, dim=-1),
-                    target=F.softmax(logits_tea / args.temperature, dim=-1),
+                loss_logits_start = F.kl_div(
+                    input=F.log_softmax(logits_stu_start / args.temperature, dim=-1),
+                    target=F.softmax(logits_tea_start / args.temperature, dim=-1),
                     reduction="batchmean",
                 ) * (args.temperature ** 2)
-
-                loss = args.alpha_distil * loss_logits + args.alpha_ce * loss
+                loss_logits_end = F.kl_div(
+                    input=F.log_softmax(logits_stu_end / args.temperature, dim=-1),
+                    target=F.softmax(logits_tea_end / args.temperature, dim=-1),
+                    reduction="batchmean",
+                ) * (args.temperature ** 2)
+                # original loss is already averaged in modeling
+                loss = args.alpha_distil * (loss_logits_start + loss_logits_end) / 2 + args.alpha_ce * loss
 
             # Regularization
             if args.regularization is not None:
