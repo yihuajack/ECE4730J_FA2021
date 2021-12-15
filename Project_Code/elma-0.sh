@@ -8,6 +8,7 @@ python run_squad.py \
   --task_name SQuAD \
   --do_train \
   --do_eval \
+  --do_lower_case \
   --data_dir ../SQuAD2.0 \
   --max_seq_length 128 \
   --per_gpu_eval_batch_size 1 \
@@ -25,6 +26,7 @@ python masked_run_highway_squad.py --model_type masked_albert \
   --task_name SQuAD \
   --do_train \
   --do_eval \
+  --do_lower_case \
   --data_dir ../SQuAD2.0 \
   --max_seq_length 128 \
   --per_gpu_eval_batch_size=1 \
@@ -64,6 +66,7 @@ for ENTROPY in $ENTROPIES; do
       --model_name_or_path ./saved_models/masked_albert/SQuAD/bertarized_two_stage_pruned_0.6 \
       --task_name SQuAD \
       --do_eval \
+      --do_lower_case \
       --data_dir ../SQuAD2.0 \
       --max_seq_length 128 \
       --per_gpu_eval_batch_size=1 \
@@ -81,6 +84,7 @@ for ENTROPY in $ENTROPIES; do
       --model_name_or_path ./saved_models/masked_albert/SQuAD/bertarized_two_stage_pruned_0.6 \
       --task_name SQuAD \
       --do_eval \
+      --do_lower_case \
       --data_dir ../SQuAD2.0 \
       --max_seq_length 128 \
       --per_gpu_eval_batch_size=1 \

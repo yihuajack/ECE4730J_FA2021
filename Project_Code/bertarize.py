@@ -60,7 +60,7 @@ def main(args):
                 mask = TopKBinarizer.apply(scores, threshold)
                 pruned_model[name] = tensor * mask
                 print(f"Pruned layer {name}")
-            elif pruning_method == "sigmoied_threshold":
+            elif pruning_method == "sigmoid_threshold":
                 if "mask_scores" in name:
                     continue
                 prefix_ = name[:-6]

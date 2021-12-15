@@ -298,7 +298,8 @@ def train(args, train_dataset, model, tokenizer, teacher=None, prune_schedule=No
                       'attention_mask': batch[1],
                       'token_type_ids': batch[2],
                       'start_positions': batch[3],
-                      'end_positions': batch[4]}
+                      'end_positions': batch[4],
+                      }
             if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
                 del inputs["token_type_ids"]
                 # XLM, DistilBERT and RoBERTa don't use segment_ids
@@ -485,6 +486,8 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
+                          'start_positions': batch[3],
+                          'end_positions': batch[4],
                           }
                 if args.model_type in ["xlm", "roberta", "distilbert", "camembert", "bart", "longformer"]:
                     del inputs["token_type_ids"]

@@ -159,7 +159,7 @@ class AlbertTransformer(nn.Module):
                 else:
                     ent_ = self.early_exit_entropy[i]
 
-                if highway_entropy < ent_:
+                # if highway_entropy < ent_:
                     # if highway_entropy < self.early_exit_entropy[group_idx]:
                     # weight_func = lambda x: torch.exp(-3 * x) - 0.5**3
                     # weight_func = lambda x: 2 - torch.exp(x)
@@ -167,8 +167,8 @@ class AlbertTransformer(nn.Module):
                     #     sum([weight_func(x[2]) * x[0] for x in all_highway_exits]) /\
                     #     sum([weight_func(x[2]) for x in all_highway_exits])
                     # new_output = (weighted_logits,) + current_outputs[1:] + (all_highway_exits,)
-                    new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                    raise HighwayException(new_output, i + 1)
+                    # new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
+                    # raise HighwayException(new_output, i + 1)
             else:
                 all_highway_exits = all_highway_exits + (highway_exit,)
 
@@ -558,14 +558,15 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
             Labels for position (index) of the start of the labelled span for computing the token classification loss.
             Positions are clamped to the length of the sequence (`sequence_length`).
-            Position outside of the sequence are not taken into account for computing the loss.
+            Position outside the sequence are not taken into account for computing the loss.
         end_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
             Labels for position (index) of the end of the labelled span for computing the token classification loss.
             Positions are clamped to the length of the sequence (`sequence_length`).
-            Position outside of the sequence are not taken into account for computing the loss.
+            Position outside the sequence are not taken into account for computing the loss.
 
     Returns:
-        :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration (:class:`~transformers.AlbertConfig`) and inputs:
+        :obj:`tuple(torch.FloatTensor)` comprising various elements depending on the configuration
+            (:class:`~transformers.AlbertConfig`) and inputs:
         loss: (`optional`, returned when ``labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
             Total span extraction loss is the sum of a Cross-Entropy for the start and end positions.
         start_scores ``torch.FloatTensor`` of shape ``(batch_size, sequence_length,)``
