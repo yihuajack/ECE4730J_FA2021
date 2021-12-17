@@ -522,7 +522,7 @@ class MaskedAlbertForSequenceClassification(MaskedAlbertPreTrainedModel):
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \
-                          outputs[2:]  ## use the highway of the last layer
+                          outputs[2:]  # use the highway of the last layer
 
         return outputs  # (loss), logits, (hidden_states), (attentions)
 
@@ -683,6 +683,6 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \
-                          outputs[2:]  # use the highway of the last layer
+                          outputs[3:]  # use the highway of the last layer
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)

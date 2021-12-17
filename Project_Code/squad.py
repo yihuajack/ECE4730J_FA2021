@@ -331,18 +331,25 @@ def squad_convert_examples_to_features(
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_masks = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+        all_start_positions = torch.tensor([f.start_position for f in features], dtype=torch.long)
+        all_end_positions = torch.tensor([f.end_position for f in features], dtype=torch.long)
         all_cls_index = torch.tensor([f.cls_index for f in features], dtype=torch.long)
         all_p_mask = torch.tensor([f.p_mask for f in features], dtype=torch.float)
         all_is_impossible = torch.tensor([f.is_impossible for f in features], dtype=torch.float)
 
         if not is_training:
-            all_example_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
+            all_feature_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
             dataset = TensorDataset(
-                all_input_ids, all_attention_masks, all_token_type_ids, all_example_index, all_cls_index, all_p_mask
+                all_input_ids,
+                all_attention_masks,
+                all_token_type_ids,
+                all_feature_index,
+                all_start_positions,
+                all_end_positions,
+                all_cls_index,
+                all_p_mask,
             )
         else:
-            all_start_positions = torch.tensor([f.start_position for f in features], dtype=torch.long)
-            all_end_positions = torch.tensor([f.end_position for f in features], dtype=torch.long)
             dataset = TensorDataset(
                 all_input_ids,
                 all_attention_masks,
@@ -621,7 +628,7 @@ class SquadExample(object):
         self.doc_tokens = doc_tokens
         self.char_to_word_offset = char_to_word_offset
 
-        # Start end end positions only has a value during evaluation.
+        # Start and end positions only has a value during evaluation.
         if start_position_character is not None and not is_impossible:
             self.start_position = char_to_word_offset[start_position_character]
             self.end_position = char_to_word_offset[
