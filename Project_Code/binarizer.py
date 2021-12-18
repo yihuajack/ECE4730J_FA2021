@@ -114,7 +114,8 @@ class MagnitudeBinarizer(object):
     Computes a binary mask M from a real value matrix S such that `M_{i,j} = 1` if and only if `S_{i,j}`
     is among the k% highest values of |S| (absolute value).
 
-    Implementation is inspired from https://github.com/NervanaSystems/distiller/blob/2291fdcc2ea642a98d4e20629acb5a9e2e04b4e6/distiller/pruning/automated_gradual_pruner.py#L24
+    Implementation is inspired from https://github.com/NervanaSystems/distiller/blob
+    /2291fdcc2ea642a98d4e20629acb5a9e2e04b4e6/distiller/pruning/automated_gradual_pruner.py#L24
     """
 
     @staticmethod
@@ -123,7 +124,7 @@ class MagnitudeBinarizer(object):
         Args:
             inputs (`torch.FloatTensor`)
                 The input matrix from which the binarizer computes the binary mask.
-                This input marix is typically the weight matrix.
+                This input matrix is typically the weight matrix.
             threshold (`float`)
                 The percentage of weights to keep (the rest is pruned).
                 `threshold` is a float between 0 and 1.

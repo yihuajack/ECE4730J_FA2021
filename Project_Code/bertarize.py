@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-Once a model has been fine-pruned, the weights that are masked during the forward pass can be pruned once for all.
-For instance, once the a model from the :class:`~emmental.MaskedBertForSequenceClassification` is trained, it can be saved (and then loaded)
-as a standard :class:`~transformers.BertForSequenceClassification`.
-"""
+"""Once a model has been fine-pruned, the weights that are masked during the forward pass can be pruned once for all.
+For instance, once the model from the :class:`~emmental.MaskedBertForSequenceClassification` is trained,
+it can be saved (and then loaded) as a standard :class:`~transformers.BertForSequenceClassification`. """
 
 import argparse
 import os
@@ -100,17 +98,18 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--pruning_method",
-        choices=["l0", "magnitude", "topK", "sigmoied_threshold"],
+        choices=["l0", "magnitude", "topK", "sigmoid_threshold"],
         type=str,
         required=True,
-        help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, sigmoied_threshold = Soft movement pruning)",
+        help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, "
+             "sigmoied_threshold = Soft movement pruning)",
     )
     parser.add_argument(
         "--threshold",
         type=float,
         required=False,
         help="For `magnitude` and `topK`, it is the level of remaining weights (in %) in the fine-pruned model."
-        "For `sigmoied_threshold`, it is the threshold \tau against which the (sigmoied) scores are compared."
+        "For `sigmoid_threshold`, it is the threshold against which the (sigmoid) scores are compared."
         "Not needed for `l0`",
     )
     parser.add_argument(

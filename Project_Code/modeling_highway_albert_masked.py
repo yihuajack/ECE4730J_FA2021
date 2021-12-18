@@ -664,7 +664,7 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
 
                 if not self.training:
                     highway_logits_all.append(highway_logits)
-                    highway_entropy.append(highway_exit[1])
+                    highway_entropy.append(highway_exit[2])
 
                 loss_fct = CrossEntropyLoss(ignore_index=ignored_index)
                 start_loss = loss_fct(highway_start_logits, start_positions)
@@ -683,6 +683,6 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \
-                          outputs[3:]  # use the highway of the last layer
+                          outputs[2:]  # use the highway of the last layer
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)

@@ -36,9 +36,7 @@ from file_utils import add_start_docstrings, add_start_docstrings_to_callable
 
 from binarizer import MagnitudeBinarizer, ThresholdBinarizer, TopKBinarizer
 
-
 logger = logging.getLogger(__name__)
-
 
 ALBERT_PRETRAINED_MODEL_ARCHIVE_MAP = {
     "albert-base-v1": "https://s3.amazonaws.com/models.huggingface.co/bert/albert-base-pytorch_model.bin",
@@ -192,7 +190,7 @@ class AlbertAttention(BertSelfAttention):
         self.hidden_size = config.hidden_size
         self.attention_head_size = config.hidden_size // config.num_attention_heads
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
-        #self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        # self.dense = nn.Linear(config.hidden_size, config.hidden_size)
 
         if params is not None:
             self.adapt_span_bool = params["adapt_span_enabled"]
@@ -200,7 +198,7 @@ class AlbertAttention(BertSelfAttention):
             self.adapt_span_bool = False
 
         if self.adapt_span_bool:
-           self.adaptive_span = AdaptiveSpan(
+            self.adaptive_span = AdaptiveSpan(
                 params["adapt_span_enabled"],
                 params["attn_span"],
                 params["adapt_span_loss_coeff"],
@@ -210,7 +208,7 @@ class AlbertAttention(BertSelfAttention):
                 params["nb_heads"],
                 params["bs"],
                 params["mask_size"],
-         )
+            )
 
         self.dense = MaskedLinear(
             config.hidden_size,
@@ -248,7 +246,7 @@ class AlbertAttention(BertSelfAttention):
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
-    #used to be commented out
+    # used to be commented out
     def prune_heads(self, heads):
         if len(heads) == 0:
             return
@@ -281,14 +279,14 @@ class AlbertAttention(BertSelfAttention):
         key_layer = self.transpose_for_scores(mixed_key_layer)
         value_layer = self.transpose_for_scores(mixed_value_layer)
 
-        #print ("size of input_ids: ", input_ids.size())
-        #print ("size of query layer: ", query_layer.size())
-        #print ("size of key_layer: ", key_layer.size())
-        #print ("size of value_layer: ", value_layer.size())
+        # print ("size of input_ids: ", input_ids.size())
+        # print ("size of query layer: ", query_layer.size())
+        # print ("size of key_layer: ", key_layer.size())
+        # print ("size of value_layer: ", value_layer.size())
 
-        #print ("attention_head_size: ", self.attention_head_size)
-        #print ("hidden_size: ", self.hidden_size)
-        #print ("num_attention_heads: ", self.num_attention_heads)
+        # print ("attention_head_size: ", self.attention_head_size)
+        # print ("hidden_size: ", self.hidden_size)
+        # print ("num_attention_heads: ", self.num_attention_heads)
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
@@ -299,12 +297,12 @@ class AlbertAttention(BertSelfAttention):
 
         # Normalize the attention scores to probabilities.
         attention_probs = nn.Softmax(dim=-1)(attention_scores)
-        #print ("attn size after Softmax: ", attention_probs.size())
+        # print ("attn size after Softmax: ", attention_probs.size())
 
         if self.adapt_span_bool:
-           attention_probs = self.adaptive_span(attention_probs)
+            attention_probs = self.adaptive_span(attention_probs)
 
-        #print ("attn size after Adaptive Masking: ", attention_probs.size())
+        # print ("attn size after Adaptive Masking: ", attention_probs.size())
 
         # This is actually dropping out entire tokens to attend to, which might
         # seem a bit unusual, but is taken from the original Transformer paper.
@@ -318,7 +316,7 @@ class AlbertAttention(BertSelfAttention):
 
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
 
-        #apply pruning to self.dense
+        # apply pruning to self.dense
 
         if self.dense.pruning_method == "topK":
             mask = TopKBinarizer.apply(self.dense.mask_scores, threshold)
@@ -347,8 +345,8 @@ class AlbertAttention(BertSelfAttention):
         # )
         w = (
             weight_thresholded.t()
-            .view(self.num_attention_heads, self.attention_head_size, self.hidden_size)
-            .to(context_layer.dtype)
+                .view(self.num_attention_heads, self.attention_head_size, self.hidden_size)
+                .to(context_layer.dtype)
         )
         b = self.dense.bias.to(context_layer.dtype)
 
@@ -360,20 +358,22 @@ class AlbertAttention(BertSelfAttention):
     def get_cache_size(self):
         return self.adaptive_span.get_cache_size()
 
+
 AlbertLayerNorm = torch.nn.LayerNorm
+
 
 class AlbertLayer(nn.Module):
     def __init__(self, config, params):
         super().__init__()
 
         self.config = config
-        self.full_layer_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps) #comment this??
+        self.full_layer_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)  # comment this??
         self.attention = AlbertAttention(config, params)
-        #self.is_decoder = config.is_decoder
-        #if self.is_decoder:
+        # self.is_decoder = config.is_decoder
+        # if self.is_decoder:
         #    self.crossattention = AlbertAttention(config)
-        #self.intermediate = AlbertIntermediate(config)
-        #self.output = AlbertOutput(config)
+        # self.intermediate = AlbertIntermediate(config)
+        # self.output = AlbertOutput(config)
 
         # self.ffn = nn.Linear(config.hidden_size, config.intermediate_size)
         # self.ffn_output = nn.Linear(config.intermediate_size, config.hidden_size)
@@ -398,7 +398,7 @@ class AlbertLayer(nn.Module):
 
     def forward(self, hidden_states, attention_mask=None, head_mask=None, threshold=None):
         attention_output = self.attention(hidden_states, attention_mask, head_mask, threshold=threshold)
-        #threshold here???
+        # threshold here???
         ffn_output = self.ffn(attention_output[0], threshold=threshold)
         ffn_output = self.activation(ffn_output)
         ffn_output = self.ffn_output(ffn_output, threshold=threshold)
@@ -445,7 +445,8 @@ class AlbertTransformer(nn.Module):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
         self.embedding_hidden_mapping_in = nn.Linear(config.embedding_size, config.hidden_size)
-        self.albert_layer_groups = nn.ModuleList([AlbertLayerGroup(config, params=params) for _ in range(config.num_hidden_groups)])
+        self.albert_layer_groups = nn.ModuleList(
+            [AlbertLayerGroup(config, params=params) for _ in range(config.num_hidden_groups)])
 
     def forward(self, hidden_states, attention_mask=None, head_mask=None, threshold=None):
         hidden_states = self.embedding_hidden_mapping_in(hidden_states)
@@ -465,7 +466,7 @@ class AlbertTransformer(nn.Module):
             layer_group_output = self.albert_layer_groups[group_idx](
                 hidden_states,
                 attention_mask,
-                head_mask[group_idx * layers_per_group : (group_idx + 1) * layers_per_group],
+                head_mask[group_idx * layers_per_group: (group_idx + 1) * layers_per_group],
                 threshold=threshold
             )
             hidden_states = layer_group_output[0]
@@ -562,7 +563,6 @@ MASKED_ALBERT_INPUTS_DOCSTRING = r"""
     MASKED_ALBERT_START_DOCSTRING,
 )
 class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
-
     config_class = MaskedAlbertConfig
     pretrained_model_archive_map = ALBERT_PRETRAINED_MODEL_ARCHIVE_MAP
     load_tf_weights = load_tf_weights_in_albert
@@ -612,14 +612,14 @@ class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(MASKED_ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        threshold=None
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            threshold=None
     ):
         r"""
     Return:
@@ -696,15 +696,16 @@ class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
         embedding_output = self.embeddings(
             input_ids, position_ids=position_ids, token_type_ids=token_type_ids, inputs_embeds=inputs_embeds
         )
-        encoder_outputs = self.encoder(embedding_output, extended_attention_mask, head_mask=head_mask, threshold=threshold)
+        encoder_outputs = self.encoder(embedding_output, extended_attention_mask, head_mask=head_mask,
+                                       threshold=threshold)
 
         sequence_output = encoder_outputs[0]
 
         pooled_output = self.pooler_activation(self.pooler(sequence_output[:, 0]))
 
         outputs = (sequence_output, pooled_output) + encoder_outputs[
-            1:
-        ]  # add hidden_states and attentions if they are here
+                                                     1:
+                                                     ]  # add hidden_states and attentions if they are here
         return outputs
 
 
@@ -762,15 +763,15 @@ class MaskedAlbertForMaskedLM(MaskedAlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(MASKED_ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        masked_lm_labels=None,
-        threshold=None
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            masked_lm_labels=None,
+            threshold=None
     ):
         r"""
         masked_lm_labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
@@ -820,7 +821,7 @@ class MaskedAlbertForMaskedLM(MaskedAlbertPreTrainedModel):
         )
         sequence_outputs = outputs[0]
 
-        prediction_scores = self.predictions(sequence_outputs) #threshold=threshold if pruning MLM head
+        prediction_scores = self.predictions(sequence_outputs)  # threshold=threshold if pruning MLM head
 
         outputs = (prediction_scores,) + outputs[2:]  # Add hidden states and attention if they are here
         if masked_lm_labels is not None:
@@ -849,15 +850,15 @@ class MaskedAlbertForSequenceClassification(MaskedAlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(MASKED_ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        labels=None,
-        threshold=None
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            labels=None,
+            threshold=None
     ):
         r"""
         labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):
@@ -946,16 +947,16 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
 
     @add_start_docstrings_to_callable(MASKED_ALBERT_INPUTS_DOCSTRING)
     def forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        start_positions=None,
-        end_positions=None,
-        threshold=None
+            self,
+            input_ids=None,
+            attention_mask=None,
+            token_type_ids=None,
+            position_ids=None,
+            head_mask=None,
+            inputs_embeds=None,
+            start_positions=None,
+            end_positions=None,
+            threshold=None
     ):
         r"""
         start_positions (:obj:`torch.LongTensor` of shape :obj:`(batch_size,)`, `optional`, defaults to :obj:`None`):

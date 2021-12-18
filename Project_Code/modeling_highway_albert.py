@@ -108,7 +108,7 @@ class AlbertTransformer(nn.Module):
 
             # check
             if self.output_hidden_states:
-               all_hidden_states = all_hidden_states + (hidden_states,)
+                all_hidden_states = all_hidden_states + (hidden_states,)
 
             # added this section
             current_outputs = (hidden_states,)
@@ -721,6 +721,6 @@ class AlbertForQuestionAnswering(AlbertPreTrainedModel):
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \
-                          outputs[2:]  ## use the highway of the last layer
+                          outputs[2:]  # use the highway of the last layer
 
         return outputs  # (loss), start_logits, end_logits, (hidden_states), (attentions)
