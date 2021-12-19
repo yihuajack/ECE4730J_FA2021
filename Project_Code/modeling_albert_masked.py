@@ -320,8 +320,8 @@ class AlbertAttention(BertSelfAttention):
 
         if self.dense.pruning_method == "topK":
             mask = TopKBinarizer.apply(self.dense.mask_scores, threshold)
-        elif self.dense.pruning_method in ["threshold", "sigmoied_threshold"]:
-            sig = "sigmoied" in self.dense.pruning_method
+        elif self.dense.pruning_method in ["threshold", "sigmoid_threshold"]:
+            sig = "sigmoid" in self.dense.pruning_method
             mask = ThresholdBinarizer.apply(self.dense.mask_scores, threshold, sig)
         elif self.dense.pruning_method == "magnitude":
             mask = MagnitudeBinarizer.apply(self.dense.weight, threshold)

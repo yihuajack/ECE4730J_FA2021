@@ -81,16 +81,16 @@ class AlbertTransformer(nn.Module):
         if config.one_class:
             self.highway = nn.ModuleList([MaskedAlbertHighwayForQuestionAnswering(config)
                                           for _ in range(config.num_hidden_groups)])
-            self.early_exit_entropy = [-1 for _ in range(config.num_hidden_groups)]
+            self.early_exit_entropy = [[-1, -1] for _ in range(config.num_hidden_groups)]
         else:
             self.highway = nn.ModuleList([MaskedAlbertHighwayForQuestionAnswering(config)
                                           for _ in range(config.num_hidden_layers)])
-            self.early_exit_entropy = [-1 for _ in range(config.num_hidden_layers)]
+            self.early_exit_entropy = [[-1, -1] for _ in range(config.num_hidden_layers)]
 
     def set_early_exit_entropy(self, x):
         print(x)
-        if (type(x) is float) or (type(x) is int):
-            for i in range(len(self.early_exit_entropy)):
+        if (type(x[0]) is float) or (type(x[0]) is int):
+            for i in range(len(self.early_exit_entropy[0])):
                 self.early_exit_entropy[i] = x
         else:
             self.early_exit_entropy = x
@@ -159,7 +159,7 @@ class AlbertTransformer(nn.Module):
                 else:
                     ent_ = self.early_exit_entropy[i]
 
-                # if highway_entropy < ent_:
+                if highway_entropy.tolist()[0][0] < ent_[0] or highway_entropy.tolist()[0][1] < ent_[1]:
                     # if highway_entropy < self.early_exit_entropy[group_idx]:
                     # weight_func = lambda x: torch.exp(-3 * x) - 0.5**3
                     # weight_func = lambda x: 2 - torch.exp(x)
@@ -167,8 +167,8 @@ class AlbertTransformer(nn.Module):
                     #     sum([weight_func(x[2]) * x[0] for x in all_highway_exits]) /\
                     #     sum([weight_func(x[2]) for x in all_highway_exits])
                     # new_output = (weighted_logits,) + current_outputs[1:] + (all_highway_exits,)
-                    # new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
-                    # raise HighwayException(new_output, i + 1)
+                    new_output = (highway_logits,) + current_outputs[1:] + (all_highway_exits,)
+                    raise HighwayException(new_output, i + 1)
             else:
                 all_highway_exits = all_highway_exits + (highway_exit,)
 
@@ -262,7 +262,7 @@ class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
             Tuple of :obj:`torch.FloatTensor` (one for each layer) of shape
             :obj:`(batch_size, num_heads, sequence_length, sequence_length)`.
 
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+            Attention weights after the attention softmax, used to compute the weighted average in the self-attention
             heads.
 
     Example::
@@ -272,7 +272,8 @@ class MaskedAlbertModel(MaskedAlbertPreTrainedModel):
 
         tokenizer = AlbertTokenizer.from_pretrained('albert-base-v2')
         model = AlbertModel.from_pretrained('albert-base-v2')
-        input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute", add_special_tokens=True)).unsqueeze(0)  # Batch size 1
+        input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute", add_special_tokens=True)).unsqueeze(0)
+            # Batch size 1
         outputs = model(input_ids)
         last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
 
@@ -625,13 +626,17 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
         except HighwayException as e:
             outputs = e.message
             exit_layer = e.exit_layer
-            start_logits = outputs[0]
-            end_logits = outputs[1]
+            logits = outputs[0]
+            start_logits, end_logits = logits.split(1, dim=-1)
+            start_logits = start_logits.squeeze(-1)
+            end_logits = end_logits.squeeze(-1)
+
+            outputs = (start_logits, end_logits,) + ((outputs[1]),)
 
         if not self.training:
             # original_start_entropy = entropy(start_logits)
             # original_end_entropy = entropy(end_logits)
-            original_entropy = entropy(logits)
+            original_entropy = [entropy(start_logits), entropy(end_logits)]
             highway_entropy = []
             # highway_start_logits_all = []
             # highway_end_logits_all = []
@@ -680,6 +685,15 @@ class MaskedAlbertForQuestionAnswering(MaskedAlbertPreTrainedModel):
 
         if not self.training:
             outputs = outputs + ((original_entropy, highway_entropy), exit_layer)
+            # hsfile = open("highway_start_entropy.txt", "a")
+            # hefile = open("highway_end_entropy.txt", "a")
+            # for hent in highway_entropy:
+            #     hsfile.write(str(hent.tolist()[0][0]) + ", ")
+            #     hefile.write(str(hent.tolist()[0][1]) + ", ")
+            # hsfile.write("\n")
+            # hefile.write("\n")
+            # hsfile.close()
+            # hefile.close()
             if output_layer >= 0:
                 outputs = (outputs[0],) + \
                           (highway_logits_all[output_layer],) + \

@@ -62,14 +62,14 @@ class MaskedLinear(nn.Linear):
                 Default: ``0.``
             pruning_method (`str`)
                 Method to compute the mask.
-                Choices: ["topK", "threshold", "sigmoied_threshold", "magnitude", "l0"]
+                Choices: ["topK", "threshold", "sigmoid_threshold", "magnitude", "l0"]
                 Default: ``topK``
         """
         super(MaskedLinear, self).__init__(in_features=in_features, out_features=out_features, bias=bias)
-        assert pruning_method in ["topK", "threshold", "sigmoied_threshold", "magnitude", "l0"]
+        assert pruning_method in ["topK", "threshold", "sigmoid_threshold", "magnitude", "l0"]
         self.pruning_method = pruning_method
 
-        if self.pruning_method in ["topK", "threshold", "sigmoied_threshold", "l0"]:
+        if self.pruning_method in ["topK", "threshold", "sigmoid_threshold", "l0"]:
             self.mask_scale = mask_scale
             self.mask_init = mask_init
             self.mask_scores = nn.Parameter(torch.Tensor(self.weight.size()))
@@ -87,8 +87,8 @@ class MaskedLinear(nn.Linear):
         # Get the mask
         if self.pruning_method == "topK":
             mask = TopKBinarizer.apply(self.mask_scores, threshold)
-        elif self.pruning_method in ["threshold", "sigmoied_threshold"]:
-            sig = "sigmoied" in self.pruning_method
+        elif self.pruning_method in ["threshold", "sigmoid_threshold"]:
+            sig = "sigmoid" in self.pruning_method
             mask = ThresholdBinarizer.apply(self.mask_scores, threshold, sig)
         elif self.pruning_method == "magnitude":
             mask = MagnitudeBinarizer.apply(self.weight, threshold)

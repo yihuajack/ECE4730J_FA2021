@@ -279,8 +279,8 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
 
     start_position = tok_text.find(pred_text)
     if start_position == -1:
-        # if verbose_logging:
-        #     logger.info(f"Unable to find text: '{pred_text}' in '{orig_text}'")
+        if verbose_logging:
+            logger.info(f"Unable to find text: '{pred_text}' in '{orig_text}'")
         return orig_text
     end_position = start_position + len(pred_text) - 1
 

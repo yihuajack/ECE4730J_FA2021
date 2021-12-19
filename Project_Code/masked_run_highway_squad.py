@@ -544,7 +544,7 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
             output_prediction_file=output_prediction_file,
             output_nbest_file=output_nbest_file,
             output_null_log_odds_file=output_null_log_odds_file,
-            verbose_logging=True,
+            verbose_logging=False,
             version_2_with_negative=True,
             null_score_diff_threshold=0.0,
             tokenizer=tokenizer,
@@ -567,7 +567,7 @@ def evaluate(args, model, tokenizer, prefix="", output_layer=-1, eval_highway=Fa
             actual_cost = sum([l * c for l, c in exit_layer_counter.items()])
             full_cost = len(eval_dataloader) * model.num_layers
             print("Expected saving", actual_cost / full_cost)
-            if args.early_exit_entropy >= 0:
+            if args.early_exit_entropy[0] >= 0 and args.early_exit_entropy[1] >= 0:
                 save_fname = args.plot_data_dir + '/' + \
                              args.model_name_or_path[2:] + \
                              "/entropy_{}.npy".format(args.early_exit_entropy)
@@ -746,7 +746,7 @@ def main():
                         help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
     parser.add_argument("--warmup_steps", default=0, type=int,
                         help="Linear warmup over warmup_steps.")
-    parser.add_argument("--early_exit_entropy", default=-1, type=float,
+    parser.add_argument("--early_exit_entropy", default=[-1, -1], nargs='+', type=float,
                         help="Entropy threshold for early exit.")
 
     parser.add_argument('--logging_steps', type=int, default=50,
@@ -820,7 +820,7 @@ def main():
         default="topK",
         type=str,
         help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, "
-             "sigmoied_threshold = Soft movement pruning).",
+             "sigmoid_threshold = Soft movement pruning).",
     )
     parser.add_argument(
         "--mask_init",
@@ -837,7 +837,7 @@ def main():
         "--final_lambda",
         default=0.0,
         type=float,
-        help="Regularization intensity (used in conjunction with `regulariation`.",
+        help="Regularization intensity (used in conjunction with `regularization`.",
     )
 
     parser.add_argument("--global_topk", action="store_true", help="Global TopK on the Scores.")

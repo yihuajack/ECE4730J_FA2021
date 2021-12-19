@@ -102,7 +102,7 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help="Pruning Method (l0 = L0 regularization, magnitude = Magnitude pruning, topK = Movement pruning, "
-             "sigmoied_threshold = Soft movement pruning)",
+             "sigmoid_threshold = Soft movement pruning)",
     )
     parser.add_argument(
         "--threshold",
