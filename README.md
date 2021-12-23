@@ -10,9 +10,12 @@ According to the student handbook (2021 version),
 
 ### Correctness
 
-| Name  | Score | Out of | Mean |
-| ----- | ----- | ------ | ---- |
-| Lab 1 | 5     | 5      | 5    |
-| Lab 2 | 5     | 5      | 5    |
-| Lab 3 | 5     | 5      | 5    |
-| Lab 4 | 5     | 5      | 5    |
+| Name                            | Score | Out of | Mean |
+| ------------------------------- | ----- | ------ | ---- |
+| Lab 1                           | 5     | 5      | 5    |
+| Lab 2                           | 5     | 5      | 5    |
+| Lab 3                           | 5     | 5      | 5    |
+| Lab 4                           | 5     | 5      | 5    |
+| Project Presentation and Report | 3.15  | 3.5    | 3.2  |
+| Project Mid-Check and Report    | 5.85  | 7      | 6    |
+| Final Presentation and Report   | 20.34 | 24.5   | 21.2 |
